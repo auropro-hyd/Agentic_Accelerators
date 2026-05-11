@@ -1,0 +1,5 @@
+id,sku,name,category_id,list_price,is_active
+1,A-001,Cotton t-shirt,1,19.99,true
+2,A-002,Denim jeans,1,49.50,true
+3,E-001,Bluetooth speaker,2,89.00,true
+4,H-001,Linen napkin set,3,24.00,false

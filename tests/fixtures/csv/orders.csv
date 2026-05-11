@@ -1,0 +1,5 @@
+id,customer_id,status,placed_at,total_amount
+1001,1,shipped,2026-05-01T10:00:00Z,69.49
+1002,2,pending,2026-05-02T11:30:00Z,89.00
+1003,1,cancelled,2026-05-03T09:15:00Z,0.00
+1004,3,shipped,2026-05-04T13:45:00Z,42.00

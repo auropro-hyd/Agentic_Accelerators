@@ -1,0 +1,28 @@
+# Minimal Postgres engagement config — points at the fixture container brought
+# up by `docker compose -f tests/fixtures/postgres/docker-compose.yaml up -d`.
+# Password lives in the env var named below; default in the fixture is
+# `dla_dev_password` (see the docker-compose file).
+
+source:
+  source_id: fixture_postgres
+  display_name: Fixture Postgres (retail demo)
+  provider: postgres
+  postgres:
+    host: localhost
+    port: 55432
+    database: dla_fixture
+    username: dla
+    password_env_var: DLA_DB_PASSWORD
+    schemas:
+      - public
+
+runtime:
+  bundle_dir: ./bundle
+  log_format: console
+
+thresholds:
+  name_match_min_score: 0.85
+  value_overlap_min_ratio: 0.5
+  high_null_rate: 0.5
+  high_null_rate_critical: 0.9
+  sample_budget_rows: 10000
