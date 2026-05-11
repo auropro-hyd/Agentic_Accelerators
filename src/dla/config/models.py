@@ -86,11 +86,20 @@ class ThresholdsConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name_match_min_score: float = 0.85  # 0-1, used by inferred_fk
-    value_overlap_min_ratio: float = 0.5  # share of values that must overlap to suggest a join
-    high_null_rate: float = 0.5  # readiness threshold for `warning`
-    high_null_rate_critical: float = 0.9  # readiness threshold for `critical`
+    # Discovery (M1) thresholds.
+    name_match_min_score: float = 0.85
+    value_overlap_min_ratio: float = 0.5
+
+    # Profiling (M2) thresholds.
     sample_budget_rows: int = 10000
+    top_n_values: int = 10
+    max_distinct_for_count: int = 100_000
+
+    # Readiness (M2) thresholds. Null-rate thresholds drive severity.
+    high_null_rate: float = 0.5
+    high_null_rate_critical: float = 0.9
+    constant_column_severity_info: bool = True
+    """When True, constant columns are flagged as `info`; when False, `warning`."""
 
 
 class LLMConfig(BaseModel):

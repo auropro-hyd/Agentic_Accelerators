@@ -165,26 +165,53 @@ class PostgresConnector:
         indexes.sort(key=lambda i: (i.table, i.name))
         return IntrospectionResult(tables=tables, declared_relationships=rels, indexes=indexes)
 
-    def sample_column(self, table: str, column: str, n: int) -> list[Any]:
+    def _reflect_table(self, table: str) -> Table | None:
         if self._engine is None:
-            return []
-        # `table` is schema.table; the Table reflected by metadata uses that fullname.
+            return None
         metadata = MetaData()
         try:
-            sa_table = Table(
+            return Table(
                 table.split(".", 1)[-1],
                 metadata,
                 autoload_with=self._engine,
                 schema=table.split(".", 1)[0] if "." in table else None,
             )
         except SQLAlchemyError:
-            return []
-        if column not in sa_table.columns:
+            return None
+
+    def sample_column(self, table: str, column: str, n: int) -> list[Any]:
+        sa_table = self._reflect_table(table)
+        if sa_table is None or column not in sa_table.columns or self._engine is None:
             return []
         col = sa_table.columns[column]
         with self._engine.connect() as conn:
             stmt = select(col).where(col.isnot(None)).limit(n)
             return [row[0] for row in conn.execute(stmt)]
+
+    def row_count(self, table: str) -> int:
+        from sqlalchemy import func
+
+        sa_table = self._reflect_table(table)
+        if sa_table is None or self._engine is None:
+            return -1
+        try:
+            with self._engine.connect() as conn:
+                result = conn.execute(select(func.count()).select_from(sa_table)).scalar_one()
+                return int(result) if result is not None else 0
+        except SQLAlchemyError:
+            return -1
+
+    def sample_with_nulls(self, table: str, column: str, n: int) -> list[Any]:
+        sa_table = self._reflect_table(table)
+        if sa_table is None or column not in sa_table.columns or self._engine is None:
+            return []
+        col = sa_table.columns[column]
+        try:
+            with self._engine.connect() as conn:
+                stmt = select(col).limit(n)
+                return [row[0] for row in conn.execute(stmt)]
+        except SQLAlchemyError:
+            return []
 
     def close(self) -> None:
         if self._engine is not None:

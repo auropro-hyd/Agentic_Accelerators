@@ -143,6 +143,67 @@ class IndexPayload(CommonFields):
     is_unique: bool
 
 
+# --- M2 entities ---
+
+
+class ProfileMode(StrEnum):
+    SAMPLING = "sampling"
+    FULL_SCAN = "full_scan"
+
+
+class ProfileStatus(StrEnum):
+    PROFILED = "profiled"
+    UNPROFILED = "unprofiled"
+    ERROR = "error"
+
+
+class ProfilePayload(CommonFields):
+    """Column-level profile (data-model.md §E3)."""
+
+    artifact_type: Literal[ArtifactType.PROFILE] = ArtifactType.PROFILE
+    column_ref: str
+    mode: ProfileMode
+    sample_size: int = Field(ge=0)
+    null_count: int = Field(ge=0)
+    null_rate: float = Field(ge=0.0, le=1.0)
+    distinct_count: int | None = None
+    top_values: list[dict[str, Any]] = Field(default_factory=list)
+    """List of `{value: any, count: int}` pairs for low-cardinality columns."""
+    min: Any | None = None
+    max: Any | None = None
+    quantiles: dict[str, float] | None = None
+    sample_values: list[Any] = Field(default_factory=list)
+    profile_status: ProfileStatus
+    error_reason: str | None = None
+
+
+class IssueType(StrEnum):
+    HIGH_NULL_RATE = "high_null_rate"
+    BROKEN_FK = "broken_fk"
+    EMPTY_TABLE = "empty_table"
+    ALL_NULL_COLUMN = "all_null_column"
+    CONSTANT_COLUMN = "constant_column"
+    TYPE_MISMATCH = "type_mismatch"
+    UNPROFILED = "unprofiled"
+
+
+class Severity(StrEnum):
+    CRITICAL = "critical"
+    WARNING = "warning"
+    INFO = "info"
+
+
+class ReadinessIssuePayload(CommonFields):
+    """One detected data-quality issue (data-model.md §E4)."""
+
+    artifact_type: Literal[ArtifactType.READINESS_ISSUE] = ArtifactType.READINESS_ISSUE
+    issue_type: IssueType
+    severity: Severity
+    affected_artifacts: list[str] = Field(default_factory=list)
+    details: dict[str, Any] = Field(default_factory=dict)
+    suggestion: str | None = None
+
+
 # --- Bundle manifest (top-level) ---
 
 

@@ -73,15 +73,26 @@ class IntrospectionResult:
 
 
 class SourceConnector(Protocol):
-    """Uniform discovery surface every provider implements."""
+    """Uniform discovery + profiling surface every provider implements."""
 
     def connect(self) -> None: ...
 
     def introspect_schema(self) -> IntrospectionResult: ...
 
     def sample_column(self, table: str, column: str, n: int) -> list[Any]:
-        """Return up to `n` representative values from `table.column`. May be
-        empty if the column is too costly to sample (e.g. very large LOB)."""
+        """Return up to `n` *non-null* values from `table.column`. Used by
+        discovery's value-overlap signal. May be empty if the column is too
+        costly to sample (e.g. very large LOB)."""
+
+    def row_count(self, table: str) -> int:
+        """Return the total row count for `table`. Returns 0 for empty
+        tables; -1 if the count is unavailable (e.g. permission denied)."""
+
+    def sample_with_nulls(self, table: str, column: str, n: int) -> list[Any]:
+        """Return up to `n` values from `table.column` *including nulls*.
+        Used by profiling to compute null rate from a sample. Order is
+        unspecified — callers must not rely on it.
+        """
 
     def close(self) -> None: ...
 

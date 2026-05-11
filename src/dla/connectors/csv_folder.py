@@ -109,6 +109,21 @@ class CsvFolderConnector:
         df = pd.read_csv(path, usecols=[column], nrows=n, encoding=self._cfg.encoding)
         return df[column].dropna().tolist()
 
+    def row_count(self, table: str) -> int:
+        path = Path(self._cfg.folder) / f"{table}.csv"
+        if not path.exists():
+            return -1
+        with path.open("r", encoding=self._cfg.encoding) as fh:
+            return max(sum(1 for _ in fh) - 1, 0)  # subtract header row
+
+    def sample_with_nulls(self, table: str, column: str, n: int) -> list[Any]:
+        path = Path(self._cfg.folder) / f"{table}.csv"
+        if not path.exists():
+            return []
+        df = pd.read_csv(path, usecols=[column], nrows=n, encoding=self._cfg.encoding)
+        series = df[column]
+        return [None if pd.isna(v) else v for v in series.tolist()]
+
     def close(self) -> None:
         return None
 
