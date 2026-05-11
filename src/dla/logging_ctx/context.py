@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Iterator
 
 source_id_var: ContextVar[str | None] = ContextVar("source_id", default=None)
 step_var: ContextVar[str | None] = ContextVar("step", default=None)

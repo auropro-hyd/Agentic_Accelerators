@@ -13,10 +13,10 @@ that gap cleanly. Flagged in M1 course-correction question #1.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class Provenance(str, Enum):
+class Provenance(StrEnum):
     """How an artifact came to be. Lower = earlier in the lifecycle."""
 
     DISCOVERED = "discovered"

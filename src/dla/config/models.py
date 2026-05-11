@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PostgresConnectionConfig(BaseModel):
@@ -86,7 +86,7 @@ class ThresholdsConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name_match_min_score: float = 0.85  # 0–1, used by inferred_fk
+    name_match_min_score: float = 0.85  # 0-1, used by inferred_fk
     value_overlap_min_ratio: float = 0.5  # share of values that must overlap to suggest a join
     high_null_rate: float = 0.5  # readiness threshold for `warning`
     high_null_rate_critical: float = 0.9  # readiness threshold for `critical`

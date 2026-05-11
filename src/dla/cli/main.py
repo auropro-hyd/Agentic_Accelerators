@@ -66,6 +66,6 @@ def version() -> None:
 
 # Subcommands register on import; importing here keeps the top-level CLI
 # discoverable via `dla --help` from the moment T020 lands.
-from dla.cli import discover as _discover  # noqa: E402, I001
+from dla.cli import discover as _discover  # noqa: E402
 
 app.add_typer(_discover.app, name="discover")

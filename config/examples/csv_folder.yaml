@@ -1,0 +1,14 @@
+# Minimal CSV-folder engagement config — points at the fixture CSVs.
+
+source:
+  source_id: fixture_csv
+  display_name: Fixture CSVs (retail demo)
+  provider: csv_folder
+  csv_folder:
+    folder: ./tests/fixtures/csv
+    glob: "*.csv"
+    encoding: utf-8
+
+runtime:
+  bundle_dir: ./bundle_csv
+  log_format: console

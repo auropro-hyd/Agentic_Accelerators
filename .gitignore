@@ -22,6 +22,10 @@ __pycache__/
 .venv/
 venv/
 
+# Bundle outputs (per-engagement; never committed)
+bundle/
+bundle_*/
+
 # Node / web UI build artifacts
 node_modules/
 dist/

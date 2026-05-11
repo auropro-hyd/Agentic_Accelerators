@@ -15,7 +15,6 @@ from dla.bundle.schema import (
     ColumnPayload,
     CreatedBy,
     NormalizedType,
-    SourcePayload,
     TablePayload,
 )
 from dla.bundle.writer import write_artifact
@@ -98,6 +97,46 @@ def test_re_run_with_same_payload_is_idempotent(tmp_path: Path) -> None:
     assert payload1 == payload2
 
 
+def test_re_run_with_later_timestamps_but_same_content_does_not_touch_file(
+    tmp_path: Path,
+) -> None:
+    """M1 DoD: re-running discover against unchanged source produces zero diffs."""
+    first = _make_table()
+    write_artifact(tmp_path, first)
+    mtime1 = (tmp_path / "schema" / "tables" / "public.orders.json").stat().st_mtime_ns
+    text1 = (tmp_path / "schema" / "tables" / "public.orders.json").read_text()
+
+    # Simulate a re-run with a later updated_at — content otherwise identical.
+    later = first.model_copy(
+        update={"updated_at": datetime(2026, 5, 12, 9, 0, 0, tzinfo=UTC)}
+    )
+    result = write_artifact(tmp_path, later)
+    assert result.already_current is True
+    mtime2 = (tmp_path / "schema" / "tables" / "public.orders.json").stat().st_mtime_ns
+    text2 = (tmp_path / "schema" / "tables" / "public.orders.json").read_text()
+    assert mtime1 == mtime2
+    assert text1 == text2
+
+
+def test_re_run_with_content_change_preserves_created_at(tmp_path: Path) -> None:
+    first = _make_table()
+    write_artifact(tmp_path, first)
+    json_path = tmp_path / "schema" / "tables" / "public.orders.json"
+    first_created_at = json.loads(json_path.read_text())["created_at"]
+
+    later_time = datetime(2026, 5, 12, 9, 0, 0, tzinfo=UTC)
+    changed = first.model_copy(
+        update={"updated_at": later_time, "row_count": 999}
+    )
+    write_artifact(tmp_path, changed)
+
+    after = json.loads(json_path.read_text())
+    assert after["created_at"] == first_created_at  # preserved
+    assert after["row_count"] == 999  # content updated
+    # updated_at moved forward
+    assert after["updated_at"] != first_created_at
+
+
 def test_sme_authored_artifact_is_not_clobbered_by_rediscovery(
     tmp_path: Path,
 ) -> None:
@@ -124,7 +163,6 @@ def test_sme_authored_artifact_is_not_clobbered_by_rediscovery(
 
 def test_disallowed_transition_raises(tmp_path: Path) -> None:
     """`ai-drafted -> client-provided-reconciled` is not a legal transition."""
-    from dla.bundle.schema import ColumnPayload, NormalizedType
 
     base = _make_column()
     ai_drafted = base.model_copy(

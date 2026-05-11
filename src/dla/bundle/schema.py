@@ -2,17 +2,17 @@
 
 This module is the canonical source of truth for every entity in the bundle.
 The same models export `config/schemas/bundle-schema.json` via
-`model_json_schema()` at M8 (see `tasks.md` T185–T188).
+`model_json_schema()` at M8 (see `tasks.md` T185-T188).
 
 For M1 we implement the schema-affecting entities (Source, Table, Column,
-Relationship, Index) and the common-fields mixin. M2–M8 entities are sketched
+Relationship, Index) and the common-fields mixin. M2-M8 entities are sketched
 as stubs to keep imports stable; they fill out when their milestone lands.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from dla.bundle.provenance import Provenance
 
 
-class ArtifactType(str, Enum):
+class ArtifactType(StrEnum):
     """Every bundle artifact's `artifact_type` value."""
 
     SOURCE = "source"
@@ -41,13 +41,13 @@ class ArtifactType(str, Enum):
     COVERAGE_RECORD = "coverage_record"
 
 
-class Confidence(str, Enum):
+class Confidence(StrEnum):
     EXPLICIT = "Explicit"
     STRONG = "Strong"
     WEAK = "Weak"
 
 
-class NormalizedType(str, Enum):
+class NormalizedType(StrEnum):
     STRING = "string"
     INTEGER = "integer"
     DECIMAL = "decimal"
@@ -59,7 +59,7 @@ class NormalizedType(str, Enum):
     UNKNOWN = "unknown"
 
 
-class CreatedBy(str, Enum):
+class CreatedBy(StrEnum):
     ACCELERATOR = "accelerator"
     SME = "sme"  # plus `:<name>` suffix carried in `created_by_detail`
     IMPORTER = "importer"
