@@ -8,6 +8,10 @@ Local_Dev/
 # Internal planning / branch tracking — between local working repo only.
 BRANCH_LOG.md
 
+# Demo scripts — internal preparation notes / talk tracks for stakeholder
+# walkthroughs. Not part of the shipped accelerator.
+demos/
+
 # Spec Kit planning workspace — internal structured planning, not for stakeholders.
 .specify/
 specs/
