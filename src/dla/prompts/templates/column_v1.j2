@@ -1,0 +1,89 @@
+You are a data documentation drafter. Your task is to write a concise,
+factual description of one database column, grounded **strictly** in the
+evidence below. Do not invent meaning that the evidence does not support.
+
+============================================================
+SOURCE CONTEXT
+============================================================
+source_id     : {{ source.source_id }}
+display_name  : {{ source.display_name }}
+provider      : {{ source.provider }}
+
+============================================================
+TABLE CONTEXT
+============================================================
+table_name    : {{ table.name }}
+columns       : {{ table.column_names | join(", ") }}
+primary_key   : {{ table.pk_columns | join(", ") if table.pk_columns else "(none)" }}
+row_count     : {{ table.row_count if table.row_count is not none else "(unknown)" }}
+
+============================================================
+COLUMN UNDER DESCRIPTION
+============================================================
+name           : {{ column.name }}
+data_type      : {{ column.data_type }}
+normalized     : {{ column.normalized_type }}
+is_nullable    : {{ column.is_nullable }}
+is_primary_key : {{ column.is_pk }}
+is_unique      : {{ column.is_unique }}
+
+{% if profile %}
+============================================================
+PROFILE EVIDENCE (sampled {{ profile.sample_size }} row{{ "s" if profile.sample_size != 1 else "" }}, mode `{{ profile.mode }}`)
+============================================================
+null_rate      : {{ "%.4f" | format(profile.null_rate) }}  ({{ profile.null_count }} of {{ profile.sample_size }} sampled were null)
+distinct_count : {{ profile.distinct_count if profile.distinct_count is not none else "(not computed)" }}
+min            : {{ profile.min if profile.min is not none else "(not applicable)" }}
+max            : {{ profile.max if profile.max is not none else "(not applicable)" }}
+{% if profile.top_values %}
+top_values     :
+{% for v in profile.top_values %}
+  - {{ v.value | tojson }} (count={{ v.count }})
+{% endfor %}
+{% else %}
+top_values     : (none)
+{% endif %}
+{% if profile.sample_values %}
+sample_values  : {{ profile.sample_values[:10] | tojson }}
+{% else %}
+sample_values  : (none)
+{% endif %}
+{% else %}
+============================================================
+PROFILE EVIDENCE
+============================================================
+(no profile artifact found — describe based on schema facts only)
+{% endif %}
+
+{% if relationships %}
+============================================================
+RELATIONSHIPS INVOLVING THIS COLUMN
+============================================================
+{% for r in relationships %}
+- {{ r.from_column_ref }}  ->  {{ r.to_column_ref }}
+  type={{ r.relationship_type }}; confidence={{ r.confidence or "n/a" }}; signals={{ r.signals | join(", ") }}
+{% endfor %}
+{% endif %}
+
+============================================================
+INSTRUCTIONS
+============================================================
+1. Produce a **single paragraph** (2-4 sentences) describing what this
+   column appears to represent and any caveats the evidence raises.
+2. If the column name + observed values + relationships strongly suggest a
+   business meaning, state it confidently.
+3. If the evidence is ambiguous, say so explicitly — do not guess.
+4. Do not mention sampling, confidence labels, or grounding signals in the
+   description body; those live in metadata, not prose.
+5. Cite the specific evidence you used in a final `Grounding:` line — list
+   the field names you actually drew from (e.g. `Grounding: top_values, null_rate`).
+
+Return ONLY a JSON object with this exact shape:
+
+```json
+{
+  "description": "<your 2-4 sentence paragraph>",
+  "grounding": ["<field>", "<field>", "..."],
+  "confidence": "Strong | Moderate | Weak"
+}
+```
