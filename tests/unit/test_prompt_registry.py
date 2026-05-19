@@ -125,6 +125,85 @@ def test_render_with_missing_context_key_raises() -> None:
         render("column_v1", ctx)
 
 
+def _full_table_context() -> dict:
+    return {
+        "source": {
+            "source_id": "test_src",
+            "display_name": "Test Source",
+            "provider": "postgres",
+        },
+        "table": {
+            "name": "public.orders",
+            "column_names": ["id", "status", "customer_id"],
+            "pk_columns": ["id"],
+            "row_count": 5,
+        },
+        "columns": [
+            {
+                "name": "id",
+                "data_type": "integer",
+                "normalized_type": "integer",
+                "is_nullable": False,
+                "is_pk": True,
+                "is_unique": True,
+                "profile": {
+                    "mode": "sampling",
+                    "sample_size": 5,
+                    "null_count": 0,
+                    "null_rate": 0.0,
+                    "distinct_count": 5,
+                    "top_values": [{"value": 1, "count": 1}, {"value": 2, "count": 1}],
+                    "min": 1,
+                    "max": 5,
+                    "sample_values": [1, 2, 3, 4, 5],
+                },
+            },
+            {
+                "name": "status",
+                "data_type": "varchar(32)",
+                "normalized_type": "string",
+                "is_nullable": False,
+                "is_pk": False,
+                "is_unique": False,
+                "profile": None,
+            },
+        ],
+        "relationships": [],
+    }
+
+
+def test_available_prompts_includes_table_v1() -> None:
+    assert "table_v1" in available_prompts()
+
+
+def test_render_table_v1_contains_columns_and_pk() -> None:
+    out = render("table_v1", _full_table_context())
+    assert "public.orders" in out
+    assert "primary_key" in out
+    assert "id" in out
+    assert "status" in out
+    assert "varchar(32)" in out
+    # Profile info for the id column should be summarised in the columns block.
+    assert "sample=5" in out
+    assert "null_rate=0.0000" in out
+
+
+def test_render_table_v1_is_deterministic() -> None:
+    ctx = _full_table_context()
+    assert render("table_v1", ctx) == render("table_v1", ctx)
+
+
+def test_render_table_v1_flags_pk_and_not_null() -> None:
+    out = render("table_v1", _full_table_context())
+    assert "[PK]" in out
+    assert "NOT NULL" in out
+
+
+def test_render_table_v1_handles_no_relationships() -> None:
+    out = render("table_v1", _full_table_context())
+    assert "(none discovered)" in out
+
+
 def test_render_emits_relationships_when_present() -> None:
     ctx = _full_column_context()
     ctx["relationships"] = [

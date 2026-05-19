@@ -177,6 +177,34 @@ class ProfilePayload(CommonFields):
     error_reason: str | None = None
 
 
+# --- M3 entities ---
+
+
+class DescriptionPayload(CommonFields):
+    """Auto-drafted (or SME-edited) human description of a table or column.
+
+    `target_artifact_ref` points back at the entity being described — either a
+    `table:...` or `column:...` artifact id. The on-disk filename stem
+    namespaces by target (`column.<dotted>.{md,json}` or
+    `table.<dotted>.{md,json}`) so descriptions for tables and columns can
+    live side-by-side in one directory without collision.
+
+    `text` is the prose description (also the markdown body).
+    `grounding_hash` is a stable hash over the prompt context dict — a re-run
+    of `dla describe` skips the (expensive) LLM call when the hash is
+    unchanged AND the provenance is still `ai-drafted`. Any SME edit flips
+    the provenance to `ai-drafted-edited`, which `preserves_sme_work` then
+    protects from clobbering forever.
+    """
+
+    artifact_type: Literal[ArtifactType.DESCRIPTION] = ArtifactType.DESCRIPTION
+    target_artifact_ref: str
+    target_kind: Literal["table", "column"]
+    text: str
+    model: str | None = None
+    grounding_hash: str | None = None
+
+
 class IssueType(StrEnum):
     HIGH_NULL_RATE = "high_null_rate"
     BROKEN_FK = "broken_fk"

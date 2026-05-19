@@ -1,0 +1,66 @@
+You are a data documentation drafter. Your task is to write a concise,
+factual description of one database table, grounded **strictly** in the
+evidence below. Do not invent meaning that the evidence does not support.
+
+============================================================
+SOURCE CONTEXT
+============================================================
+source_id     : {{ source.source_id }}
+display_name  : {{ source.display_name }}
+provider      : {{ source.provider }}
+
+============================================================
+TABLE UNDER DESCRIPTION
+============================================================
+name          : {{ table.name }}
+row_count     : {{ table.row_count if table.row_count is not none else "(unknown)" }}
+primary_key   : {{ table.pk_columns | join(", ") if table.pk_columns else "(none)" }}
+
+============================================================
+COLUMNS ({{ columns | length }})
+============================================================
+{% for c in columns %}
+- {{ c.name }} : {{ c.data_type }} ({{ c.normalized_type }}){% if c.is_pk %} [PK]{% endif %}{% if c.is_unique %} [UNIQUE]{% endif %}{% if not c.is_nullable %} NOT NULL{% endif %}
+{% if c.profile %}
+    profile: sample={{ c.profile.sample_size }}, null_rate={{ "%.4f" | format(c.profile.null_rate) }}, distinct={{ c.profile.distinct_count if c.profile.distinct_count is not none else "?" }}{% if c.profile.top_values %}, top={{ (c.profile.top_values | map(attribute="value") | list)[:3] | tojson }}{% endif %}
+{% endif %}
+{% endfor %}
+
+{% if relationships %}
+============================================================
+RELATIONSHIPS FROM/TO THIS TABLE
+============================================================
+{% for r in relationships %}
+- {{ r.from_column_ref }}  ->  {{ r.to_column_ref }}  ({{ r.relationship_type }})
+{% endfor %}
+{% else %}
+============================================================
+RELATIONSHIPS FROM/TO THIS TABLE
+============================================================
+(none discovered)
+{% endif %}
+
+============================================================
+INSTRUCTIONS
+============================================================
+1. Produce a **single paragraph** (2-5 sentences) describing what this
+   table appears to hold and how it relates to the rest of the schema.
+2. Use the column list, primary key, and relationships as your evidence.
+3. If a column name + data type strongly suggests a business role (e.g.
+   `email`, `created_at`, `customer_id`), name it confidently.
+4. If the evidence is ambiguous, say so explicitly — do not guess.
+5. Do not mention sampling, confidence labels, or grounding signals in the
+   description body; those live in metadata, not prose.
+6. Cite the specific evidence you used in the `grounding` field of the
+   response — list the column names and any relationship endpoints you
+   actually drew from.
+
+Return ONLY a JSON object with this exact shape:
+
+```json
+{
+  "description": "<your 2-5 sentence paragraph>",
+  "grounding": ["<column-or-fact>", "<column-or-fact>", "..."],
+  "confidence": "Strong | Moderate | Weak"
+}
+```
