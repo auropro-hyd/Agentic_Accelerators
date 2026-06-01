@@ -1,0 +1,50 @@
+# Azure OpenAI engagement config (template).
+#
+# Same source/runtime as `postgres_minimal.yaml`; the only difference is the
+# `llm:` block, which routes `dla describe` to an Azure OpenAI deployment.
+#
+# SECRET HANDLING: the API key is NEVER written here. It is read at run time
+# from the environment variable named in `api_key_env_var` below. Export it
+# before running:
+#
+#     export AZURE_OPENAI_KEY="<your-azure-openai-key>"
+#
+# Azure needs four things; three live here, the key lives in the env var:
+#   - provider:     azure
+#   - model:        your *deployment* name (LiteLLM uses `azure/<deployment>`)
+#   - api_base:     your Azure resource endpoint
+#   - api_version:  the Azure OpenAI API version
+#   - (key:         AZURE_OPENAI_KEY env var)
+
+source:
+  source_id: fixture_postgres
+  display_name: Fixture Postgres (retail demo)
+  provider: postgres
+  postgres:
+    host: localhost
+    port: 55432
+    database: dla_fixture
+    username: dla
+    password_env_var: DLA_DB_PASSWORD
+    schemas:
+      - public
+
+runtime:
+  bundle_dir: ./bundle
+  log_format: console
+
+thresholds:
+  name_match_min_score: 0.85
+  value_overlap_min_ratio: 0.5
+  high_null_rate: 0.5
+  high_null_rate_critical: 0.9
+  sample_budget_rows: 10000
+
+llm:
+  provider: azure
+  model: <your-deployment-name>                       # e.g. gpt-4o
+  api_base: https://<your-resource>.openai.azure.com/  # your Azure endpoint
+  api_version: 2024-02-15-preview
+  api_key_env_var: AZURE_OPENAI_KEY                     # key read from this env var
+  timeout_seconds: 60
+  max_retries: 2
