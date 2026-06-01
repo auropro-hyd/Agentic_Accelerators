@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ table_id }}.{{ col.name }} — DLA{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/tables/{{ table_id }}">← {{ table_id }}</a></p>
+<h1>{{ table_id }}.{{ col.name }}</h1>
+<p class="meta">
+  <code>{{ col.data_type }}</code> ({{ col.normalized_type }})
+  · {{ "nullable" if col.is_nullable else "not null" }}
+  {% if col.is_pk %} · PK{% endif %}
+</p>
+
+<section class="desc">
+  <h3>Description</h3>
+  {% if description %}
+    <p>{{ description.text }}</p>
+    <p class="prov">
+      {{ description.provenance }}
+      {% if description.confidence %} · confidence {{ description.confidence }}{% endif %}
+      {% if description.model %} · {{ description.model }}{% endif %}
+    </p>
+  {% else %}
+    <p class="empty">No description yet. Run <code>dla describe</code>.</p>
+  {% endif %}
+</section>
+
+{% if description and description.grounding_signals and description.grounding_signals.grounding_fields %}
+<section class="grounding">
+  <h3>Why this was drafted</h3>
+  <p>Grounded in: {{ description.grounding_signals.grounding_fields|join(", ") }}</p>
+</section>
+{% endif %}
+
+{% if profile %}
+<section class="profile">
+  <h3>Profile evidence</h3>
+  <ul>
+    <li>nulls: {{ profile.null_count }} ({{ (profile.null_rate * 100)|round(1) }}%)</li>
+    {% if profile.distinct_count is not none %}<li>distinct values: {{ profile.distinct_count }}</li>{% endif %}
+    {% if profile.top_values %}
+    <li>top values:
+      {% for tv in profile.top_values[:5] %}<code>{{ tv.value }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+    </li>
+    {% endif %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

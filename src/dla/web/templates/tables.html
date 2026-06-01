@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Tables — DLA{% endblock %}
+{% block content %}
+<h1>Tables</h1>
+<table class="grid">
+  <thead>
+    <tr><th>Table</th><th>Rows</th><th>Columns</th><th>Described</th><th>Pending review</th></tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><a href="/tables/{{ r.table_id }}">{{ r.name }}</a></td>
+      <td>{{ r.row_count if r.row_count is not none else "—" }}</td>
+      <td>{{ r.column_count }}</td>
+      <td>{{ r.described }}</td>
+      <td>
+        {% if r.pending_review %}<span class="pill pending">{{ r.pending_review }}</span>
+        {% else %}<span class="pill ok">0</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>SME Review</h1>
+{% if not view.has_bundle %}
+  <p class="empty">No bundle found at <code>{{ view.bundle_root }}</code>.
+  Run <code>dla discover</code> (and <code>profile</code> / <code>describe</code>) first.</p>
+{% else %}
+  <p>Source: <strong>{{ view.source_id }}</strong></p>
+  <h2>Artifacts in this bundle</h2>
+  <ul class="counts">
+    {% for k, v in view.artifact_counts.items() %}
+    <li><span>{{ k }}</span><strong>{{ v }}</strong></li>
+    {% endfor %}
+  </ul>
+  <p><a class="btn" href="/tables">Browse tables →</a></p>
+{% endif %}
+{% endblock %}
