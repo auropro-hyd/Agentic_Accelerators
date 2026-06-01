@@ -110,6 +110,7 @@ class LLMConfig(BaseModel):
     provider: str = "ollama"
     model: str = "llama3.2"
     api_base: str | None = None
+    api_version: str | None = None  # required by Azure OpenAI (e.g. "2024-02-15-preview")
     api_key_env_var: str = "DLA_LLM_API_KEY"
     timeout_seconds: int = 60
     max_retries: int = 2

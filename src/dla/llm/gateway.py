@@ -108,6 +108,29 @@ class LLMGatewayError(ConnectionError):
     """
 
 
+_LITELLM_QUIETED = False
+
+
+def _quiet_litellm(litellm: Any) -> None:
+    """Silence LiteLLM's CLI noise once per process.
+
+    LiteLLM otherwise prints a red ``Provider List: <url>`` hint to stdout and
+    INFO-level call logs (``Wrapper: Completed Call``) to its logger on every
+    live completion. On a CLI tool — and a shared-screen demo — that clutters
+    the real output. Errors/warnings are unaffected (logger stays at WARNING).
+    """
+    global _LITELLM_QUIETED
+    if _LITELLM_QUIETED:
+        return
+    import contextlib
+    import logging
+
+    with contextlib.suppress(Exception):  # attribute exists today; defensive
+        litellm.suppress_debug_info = True
+    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+    _LITELLM_QUIETED = True
+
+
 class LiteLLMGateway:
     """Production gateway backed by LiteLLM.
 
@@ -130,11 +153,13 @@ class LiteLLMGateway:
         *,
         api_base: str | None = None,
         api_key: str | None = None,
+        api_version: str | None = None,
         timeout_seconds: int = 60,
         num_retries: int = 2,
     ) -> None:
         self._api_base = api_base
         self._api_key = api_key
+        self._api_version = api_version
         self._timeout_seconds = timeout_seconds
         self._num_retries = num_retries
 
@@ -142,6 +167,8 @@ class LiteLLMGateway:
         # Imported lazily so unit tests of the rest of the codebase don't
         # pay the (sizeable) litellm import cost.
         import litellm
+
+        _quiet_litellm(litellm)
 
         kwargs: dict[str, Any] = {
             "model": request.model,
@@ -155,6 +182,9 @@ class LiteLLMGateway:
             kwargs["api_base"] = self._api_base
         if self._api_key is not None:
             kwargs["api_key"] = self._api_key
+        if self._api_version is not None:
+            # Azure OpenAI requires an api_version; other providers ignore it.
+            kwargs["api_version"] = self._api_version
         if request.response_format == "json":
             # Providers that support structured output honour this; the rest
             # ignore it. LiteLLM normalises the shape.
@@ -221,6 +251,7 @@ def build_gateway(cfg: LLMConfig, *, dry_run: bool = False) -> LLMGateway:
     return LiteLLMGateway(
         api_base=cfg.api_base,
         api_key=api_key,
+        api_version=cfg.api_version,
         timeout_seconds=cfg.timeout_seconds,
         num_retries=cfg.max_retries,
     )

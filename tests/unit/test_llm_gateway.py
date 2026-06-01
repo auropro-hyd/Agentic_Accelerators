@@ -115,3 +115,50 @@ def test_build_gateway_picks_api_base_and_key_from_config(monkeypatch) -> None:
     assert gw._api_key == "secret-xyz"
     assert gw._timeout_seconds == 42
     assert gw._num_retries == 5
+    assert gw._api_version is None  # not an Azure config → no api_version
+
+
+def test_build_gateway_threads_azure_api_version(monkeypatch) -> None:
+    """An Azure config carries api_version through to the gateway."""
+    monkeypatch.setenv("AZURE_OPENAI_KEY", "az-secret")
+    cfg = LLMConfig(
+        provider="azure",
+        model="gpt-4o",
+        api_base="https://my-resource.openai.azure.com/",
+        api_version="2024-02-15-preview",
+        api_key_env_var="AZURE_OPENAI_KEY",
+    )
+    gw = build_gateway(cfg, dry_run=False)
+    assert isinstance(gw, LiteLLMGateway)
+    assert gw._api_version == "2024-02-15-preview"
+    assert gw._api_base == "https://my-resource.openai.azure.com/"
+    assert gw._api_key == "az-secret"
+
+
+def test_litellm_gateway_passes_api_version_to_completion(monkeypatch) -> None:
+    """api_version reaches litellm.completion only when set (Azure); omitted otherwise."""
+    from types import SimpleNamespace
+
+    import litellm
+
+    captured: dict = {}
+
+    def _fake_completion(**kwargs):
+        captured.update(kwargs)
+        choice = SimpleNamespace(message=SimpleNamespace(content="ok"), finish_reason="stop")
+        return SimpleNamespace(choices=[choice], usage=None)
+
+    monkeypatch.setattr(litellm, "completion", _fake_completion)
+
+    # With api_version (Azure-style):
+    LiteLLMGateway(api_version="2024-02-15-preview").complete(
+        LLMRequest(prompt="x", model="azure/gpt-4o", prompt_version="v1")
+    )
+    assert captured.get("api_version") == "2024-02-15-preview"
+
+    # Without api_version (e.g. Ollama): the kwarg must not be present.
+    captured.clear()
+    LiteLLMGateway().complete(
+        LLMRequest(prompt="x", model="ollama/llama3.2", prompt_version="v1")
+    )
+    assert "api_version" not in captured
