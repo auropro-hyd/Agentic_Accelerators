@@ -17,7 +17,7 @@ markdown + JSON files describing what it found.
 | ----------------------------------------------------------- | ---------- |
 | **Schema discovery, tagging, and bundle writing (M1)**      | Released   |
 | **Column profiling and readiness reporting (M2)**           | Released   |
-| Auto-drafted descriptions and reviewer edit loop (M3)       | Upcoming   |
+| Auto-drafted descriptions and reviewer edit loop (M3)       | Released   |
 | Web review interface for non-technical reviewers (M4)       | Upcoming   |
 | Client-documentation import and reconciliation (M5)         | Upcoming   |
 | Business glossary and pattern catalog (M6)                  | Upcoming   |
