@@ -77,8 +77,23 @@ def _data_to_json_bytes(data: dict[str, Any]) -> bytes:
     return (json.dumps(data, indent=2, default=str) + "\n").encode("utf-8")
 
 
-def _data_to_markdown_bytes(data: dict[str, Any], body: str) -> bytes:
-    post = frontmatter.Post(content=body, **data)
+def _data_to_markdown_bytes(
+    data: dict[str, Any], body: str, *, md_exclude_keys: set[str] | None = None
+) -> bytes:
+    """Render `data` as YAML frontmatter + `body` as markdown body.
+
+    `md_exclude_keys` lets the caller keep a field in the JSON sibling but
+    out of the YAML frontmatter — used for description artifacts where the
+    prose body is the canonical text and replicating it in YAML both
+    duplicates content and exposes the YAML parser to user-text edge cases
+    (colons, multiline blocks, etc.).
+    """
+    md_data = (
+        {k: v for k, v in data.items() if k not in md_exclude_keys}
+        if md_exclude_keys
+        else data
+    )
+    post = frontmatter.Post(content=body, **md_data)
     return frontmatter.dumps(post, sort_keys=False).encode("utf-8") + b"\n"
 
 
@@ -114,6 +129,7 @@ def write_artifact(
     *,
     body: str = "",
     force: bool = False,
+    md_exclude_keys: set[str] | None = None,
 ) -> WriteResult:
     """Write one artifact (paired `.md` + `.json`) to the bundle.
 
@@ -161,7 +177,7 @@ def write_artifact(
             )
 
     json_bytes = _data_to_json_bytes(new_data)
-    md_bytes = _data_to_markdown_bytes(new_data, body=body)
+    md_bytes = _data_to_markdown_bytes(new_data, body=body, md_exclude_keys=md_exclude_keys)
 
     # Write JSON first so a partial state never has md-without-json.
     _atomic_write(json_path, json_bytes)
