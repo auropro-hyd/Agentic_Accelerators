@@ -24,7 +24,11 @@ def get_view(request: Request) -> BundleView:
 ViewDep = Annotated[BundleView, Depends(get_view)]
 
 
-def render(request: Request, name: str, context: dict[str, Any]) -> HTMLResponse:
+def render(
+    request: Request, name: str, context: dict[str, Any], *, status_code: int = 200
+) -> HTMLResponse:
     """Render a Jinja template to an HTML response (typed wrapper)."""
     templates = cast(Jinja2Templates, request.app.state.templates)
-    return templates.TemplateResponse(request=request, name=name, context=context)
+    return templates.TemplateResponse(
+        request=request, name=name, context=context, status_code=status_code
+    )

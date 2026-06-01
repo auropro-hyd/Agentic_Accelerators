@@ -140,3 +140,94 @@ def test_coverage_partial_renders(client: TestClient) -> None:
     assert "%" in r.text
     # 0 of 1 column descriptions confirmed -> 0%
     assert "Column descriptions" in r.text
+
+
+# --- Increment B: write path -------------------------------------------------
+
+
+def test_edit_bumps_provenance_to_ai_drafted_edited(client: TestClient) -> None:
+    r = client.put(
+        "/tables/public.orders/columns/status/description",
+        data={"text": "SME rewrite of the status meaning.", "expected_updated_at": ""},
+    )
+    assert r.status_code == 200
+    assert "SME rewrite of the status meaning." in r.text
+    assert "ai-drafted-edited" in r.text
+    # persisted to disk
+    g = client.get("/tables/public.orders/columns/status")
+    assert "SME rewrite of the status meaning." in g.text
+    assert "ai-drafted-edited" in g.text
+
+
+def test_accept_marks_reviewed_without_changing_body(client: TestClient) -> None:
+    r = client.post(
+        "/tables/public.orders/columns/status/accept", data={"expected_updated_at": ""}
+    )
+    assert r.status_code == 200
+    assert "ai-drafted-edited" in r.text
+    assert "Current lifecycle state of the order." in r.text  # body untouched
+
+
+def test_stale_write_returns_409(client: TestClient) -> None:
+    r = client.put(
+        "/tables/public.orders/columns/status/description",
+        data={"text": "x", "expected_updated_at": "1999-01-01T00:00:00+00:00"},
+    )
+    assert r.status_code == 409
+    assert "changed this since you opened it" in r.text
+
+
+def test_edit_column_without_draft_creates_sme_authored(client: TestClient) -> None:
+    # column 'id' has no description in the seed
+    r = client.put(
+        "/tables/public.orders/columns/id/description",
+        data={"text": "Surrogate primary key.", "expected_updated_at": ""},
+    )
+    assert r.status_code == 200
+    assert "Surrogate primary key." in r.text
+    assert "sme-authored" in r.text
+
+
+def test_accept_with_no_draft_409(client: TestClient) -> None:
+    r = client.post(
+        "/tables/public.orders/columns/id/accept", data={"expected_updated_at": ""}
+    )
+    assert r.status_code == 409
+    assert "Nothing to accept" in r.text
+
+
+# --- Increment C: review queue + bulk-accept ---------------------------------
+
+
+def test_review_queue_orders_attention_first(client: TestClient) -> None:
+    r = client.get("/review-queue")
+    assert r.status_code == 200
+    body = r.text
+    # 'id' has no draft (attention, priority 0); 'status' is a pending Strong
+    # draft (priority 2) — so 'id' must sort above 'status'.
+    assert body.index("public.orders.id") < body.index("public.orders.status")
+    assert "no draft" in body
+
+
+def test_bulk_accept_strong_marks_reviewed_and_lifts_coverage(client: TestClient) -> None:
+    r = client.post("/tables/public.orders/accept-all-strong")
+    assert r.status_code == 200
+    assert "Accepted 1" in r.text  # only 'status' is a pending Strong draft
+    # status is now reviewed on the table page
+    g = client.get("/tables/public.orders")
+    assert "reviewed" in g.text
+    # column-description coverage is now 1/1 = 100%
+    cov = client.get("/partials/coverage")
+    assert "100%" in cov.text
+
+
+def test_description_body_is_html_escaped(client: TestClient) -> None:
+    """Security (T100): SME-entered prose is autoescaped, not rendered as HTML."""
+    payload = "<script>alert('xss')</script> & <b>bold</b>"
+    r = client.put(
+        "/tables/public.orders/columns/status/description",
+        data={"text": payload, "expected_updated_at": ""},
+    )
+    assert r.status_code == 200
+    assert "<script>alert" not in r.text
+    assert "&lt;script&gt;" in r.text

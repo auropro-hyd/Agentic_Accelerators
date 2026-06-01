@@ -9,19 +9,8 @@
   {% if col.is_pk %} · PK{% endif %}
 </p>
 
-<section class="desc">
-  <h3>Description</h3>
-  {% if description %}
-    <p>{{ description.text }}</p>
-    <p class="prov">
-      {{ description.provenance }}
-      {% if description.confidence %} · confidence {{ description.confidence }}{% endif %}
-      {% if description.model %} · {{ description.model }}{% endif %}
-    </p>
-  {% else %}
-    <p class="empty">No description yet. Run <code>dla describe</code>.</p>
-  {% endif %}
-</section>
+{% set col_id = col.name %}
+{% include "partials/description_card.html" %}
 
 {% if description and description.grounding_signals and description.grounding_signals.grounding_fields %}
 <section class="grounding">

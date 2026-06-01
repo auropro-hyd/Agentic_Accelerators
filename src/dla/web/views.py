@@ -22,8 +22,11 @@ from dla.bundle.reader import iter_artifacts, load_manifest
 from dla.bundle.schema import (
     ArtifactType,
     ColumnPayload,
+    Confidence,
     DescriptionPayload,
     ProfilePayload,
+    ProfileStatus,
+    ReadinessIssuePayload,
     TablePayload,
 )
 
@@ -77,6 +80,20 @@ class CoverageStat:
         return round(100 * self.reviewed / self.total) if self.total else 0
 
 
+@dataclass(frozen=True)
+class QueueItem:
+    """A column awaiting (or done with) SME review, with attention reasons."""
+
+    table_id: str
+    col_id: str
+    name: str
+    confidence: str | None
+    reviewed: bool
+    has_description: bool
+    attention: tuple[str, ...]  # why this needs attention; empty when none
+    priority: int  # 0 = needs attention (top), 2 = pending-ok, 4 = reviewed (bottom)
+
+
 class BundleView:
     """A per-request, read-only snapshot of the bundle on disk."""
 
@@ -99,10 +116,20 @@ class BundleView:
             )
         }
         self._columns_by_table: dict[str, list[ColumnPayload]] = defaultdict(list)
+        self._columns_by_id: dict[str, ColumnPayload] = {}
         for col in columns:
             self._columns_by_table[_id_tail(col.table_ref)].append(col)
+            self._columns_by_id[col.artifact_id] = col
         for cols in self._columns_by_table.values():
             cols.sort(key=lambda c: c.name)
+        # Readiness issues that touch a column → attention reasons in the queue.
+        self._readiness_by_col: dict[str, list[str]] = defaultdict(list)
+        for issue in cast(
+            list[ReadinessIssuePayload], iter_artifacts(bundle_root, ArtifactType.READINESS_ISSUE)
+        ):
+            for ref in issue.affected_artifacts:
+                if ref.startswith("column:"):
+                    self._readiness_by_col[ref].append(str(issue.issue_type))
 
     # -- landing ---------------------------------------------------------
     @property
@@ -207,3 +234,62 @@ class BundleView:
             CoverageStat("Table descriptions", tbl_reviewed, tbl_total),
             CoverageStat("Column descriptions", col_reviewed, col_total),
         ]
+
+    # -- review queue ----------------------------------------------------
+    def _queue_item(self, table_id: str, col: ColumnPayload) -> QueueItem:
+        desc = self.descriptions.get(col.artifact_id)
+        reviewed = desc is not None and desc.provenance in _REVIEWED
+        confidence = str(desc.confidence) if desc and desc.confidence else None
+
+        attention: list[str] = []
+        issues = self._readiness_by_col.get(col.artifact_id)
+        if issues:
+            attention.append("readiness: " + ", ".join(sorted(set(issues))))
+        profile = self.profiles.get(col.artifact_id)
+        if profile is not None and profile.profile_status != ProfileStatus.PROFILED:
+            attention.append("unprofiled — AI cannot ground here")
+        if desc is None:
+            attention.append("no draft")
+        elif desc.confidence == Confidence.WEAK:
+            attention.append("weak confidence")
+
+        if reviewed:
+            priority = 4
+        elif attention:
+            priority = 0
+        else:
+            priority = 2
+        return QueueItem(
+            table_id=table_id,
+            col_id=col.name,
+            name=col.name,
+            confidence=confidence,
+            reviewed=reviewed,
+            has_description=desc is not None,
+            attention=tuple(attention),
+            priority=priority,
+        )
+
+    def review_queue(self) -> list[QueueItem]:
+        """All column items, attention-first (Weak / unprofiled / readiness),
+        then pending, then SME-confirmed last."""
+        items = [
+            self._queue_item(table_id, col)
+            for table_id, cols in self._columns_by_table.items()
+            for col in cols
+        ]
+        items.sort(key=lambda i: (i.priority, i.table_id, i.name))
+        return items
+
+    def strong_pending_columns(self, table_id: str) -> list[ColumnPayload]:
+        """Columns in a table whose description is Strong and not yet SME-confirmed."""
+        out: list[ColumnPayload] = []
+        for col in self._columns_by_table.get(table_id, []):
+            desc = self.descriptions.get(col.artifact_id)
+            if (
+                desc is not None
+                and desc.confidence == Confidence.STRONG
+                and desc.provenance not in _REVIEWED
+            ):
+                out.append(col)
+        return out

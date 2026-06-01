@@ -1,0 +1,35 @@
+<section class="desc" id="desc-card">
+  {% if message %}<p class="banner {{ message_kind or '' }}">{{ message }}</p>{% endif %}
+  <h3>Description</h3>
+  {% if description %}
+    <p class="desc-text">{{ description.text }}</p>
+    <p class="prov">
+      {{ description.provenance }}
+      {% if description.confidence %} · confidence {{ description.confidence }}{% endif %}
+      {% if description.model %} · {{ description.model }}{% endif %}
+      {% if description.created_by_detail %} · by {{ description.created_by_detail }}{% endif %}
+    </p>
+  {% else %}
+    <p class="empty">No description yet. Run <code>dla describe</code>, or write one below.</p>
+  {% endif %}
+
+  <form class="edit-form"
+        hx-put="/tables/{{ table_id }}/columns/{{ col_id }}/description"
+        hx-target="#desc-card" hx-swap="outerHTML">
+    <label for="desc-text">Edit description</label>
+    <textarea id="desc-text" name="text" rows="4">{{ description.text if description else "" }}</textarea>
+    <input type="hidden" name="expected_updated_at"
+           value="{{ description.updated_at.isoformat() if description else '' }}">
+    <div class="actions">
+      <button type="submit" class="btn">Save</button>
+      {% if description and description.provenance not in ['ai-drafted-edited', 'sme-authored'] %}
+      <button type="button" class="btn ghost"
+              hx-post="/tables/{{ table_id }}/columns/{{ col_id }}/accept"
+              hx-target="#desc-card" hx-swap="outerHTML"
+              hx-vals='{"expected_updated_at": "{{ description.updated_at.isoformat() }}"}'>
+        Accept as-is
+      </button>
+      {% endif %}
+    </div>
+  </form>
+</section>

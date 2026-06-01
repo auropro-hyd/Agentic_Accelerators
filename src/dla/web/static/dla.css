@@ -52,4 +52,21 @@ table.grid tr:last-child td { border-bottom: 0; }
 .tag { font-size: .7rem; background: #e0e7ff; color: var(--accent); padding: 0 .35rem; border-radius: 3px; margin-left: .35rem; }
 
 section.desc, section.grounding, section.profile { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: .25rem 1rem 1rem; margin-top: 1rem; }
+.desc-text { font-size: 1.02rem; }
+
+.edit-form { margin-top: 1rem; border-top: 1px dashed var(--line); padding-top: .75rem; }
+.edit-form label { display: block; font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-bottom: .3rem; }
+.edit-form textarea { width: 100%; font: inherit; padding: .5rem .6rem; border: 1px solid var(--line); border-radius: 6px; resize: vertical; }
+.actions { margin-top: .6rem; display: flex; gap: .5rem; }
+.btn.ghost { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
+.btn.ghost:hover { background: #f0f5ff; }
+.btn[type="submit"], .btn.ghost { cursor: pointer; }
+
+.banner { border-radius: 6px; padding: .45rem .7rem; margin: .5rem 0; font-size: .9rem; }
+.banner.ok { background: #dcfce7; color: var(--ok); }
+.banner.error { background: #fee2e2; color: #b91c1c; }
+
+.nav a { margin-right: 1rem; }
+.bulk { margin: .5rem 0 1rem; }
+tr.attn td { background: #fffbeb; }
 .foot { max-width: 960px; margin: 2rem auto; padding: 1rem 1.25rem; color: var(--muted); font-size: .82rem; border-top: 1px solid var(--line); }

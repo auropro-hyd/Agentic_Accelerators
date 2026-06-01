@@ -20,27 +20,5 @@
 </section>
 
 <h3>Columns</h3>
-<table class="grid">
-  <thead>
-    <tr><th>Column</th><th>Type</th><th>Nullable</th><th>Confidence</th><th>Status</th></tr>
-  </thead>
-  <tbody>
-    {% for c in columns %}
-    <tr>
-      <td>
-        <a href="/tables/{{ c.table_id }}/columns/{{ c.col_id }}">{{ c.name }}</a>
-        {% if c.is_pk %}<span class="tag">PK</span>{% endif %}
-      </td>
-      <td><code>{{ c.data_type }}</code></td>
-      <td>{{ "yes" if c.is_nullable else "no" }}</td>
-      <td>{{ c.description_confidence or "—" }}</td>
-      <td>
-        {% if not c.has_description %}<span class="pill none">no draft</span>
-        {% elif c.reviewed %}<span class="pill ok">reviewed</span>
-        {% else %}<span class="pill pending">pending</span>{% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+{% include "partials/table_body.html" %}
 {% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Review queue — DLA{% endblock %}
+{% block content %}
+<h1>Review queue</h1>
+<p class="meta">
+  Attention-first: weak-confidence drafts, unprofiled columns, and data-quality
+  flags appear at the top; SME-confirmed items sink to the bottom.
+</p>
+<table class="grid">
+  <thead>
+    <tr><th>Column</th><th>Confidence</th><th>Needs attention</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    {% for i in items %}
+    <tr class="{{ 'attn' if i.priority == 0 else '' }}">
+      <td><a href="/tables/{{ i.table_id }}/columns/{{ i.col_id }}">{{ i.table_id }}.{{ i.name }}</a></td>
+      <td>{{ i.confidence or "—" }}</td>
+      <td>
+        {% for a in i.attention %}<span class="pill pending">{{ a }}</span> {% endfor %}
+        {% if not i.attention %}—{% endif %}
+      </td>
+      <td>
+        {% if i.reviewed %}<span class="pill ok">reviewed</span>
+        {% elif not i.has_description %}<span class="pill none">no draft</span>
+        {% else %}<span class="pill pending">pending</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
