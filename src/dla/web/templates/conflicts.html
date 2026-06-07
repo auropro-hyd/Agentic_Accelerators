@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Conflicts — DLA{% endblock %}
+{% block content %}
+<h1>Import conflicts</h1>
+<p class="meta">
+  Reconciliation buckets:
+  {% for b, n in summary.items() %}<span class="cov-item">{{ b }}: <strong>{{ n }}</strong></span>{% endfor %}
+  {% if not summary %}<span class="empty">nothing reconciled yet — run <code>dla import</code> then <code>dla reconcile</code>.</span>{% endif %}
+</p>
+
+<h3>Conflicts to resolve</h3>
+{% if not conflicts %}
+  <p class="empty">No conflicts. 🎉</p>
+{% else %}
+<table class="grid">
+  <thead><tr><th>Target</th><th>Doc says</th><th>Why</th><th></th></tr></thead>
+  <tbody>
+    {% for c in conflicts %}
+    <tr class="{{ '' if c.resolved else 'attn' }}">
+      <td><code>{{ c.target_ref or "—" }}</code></td>
+      <td>{{ c.doc_value }}</td>
+      <td>{{ c.evidence.get("reason", "") }}{% if c.evidence.get("discovered_normalized") %} (doc {{ c.evidence.get("doc_normalized") }} vs data {{ c.evidence.get("discovered_normalized") }}){% endif %}</td>
+      <td>
+        {% if c.resolved %}<span class="pill ok">resolved</span>
+        {% else %}<a class="btn" href="/imports/conflicts/{{ c.key }}">Resolve →</a>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

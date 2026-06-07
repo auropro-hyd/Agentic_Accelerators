@@ -22,15 +22,19 @@ import pytest
 
 from dla.bundle.provenance import Provenance
 from dla.bundle.schema import (
+    ArtifactType,
     BundleManifest,
     ColumnPayload,
     Confidence,
     CreatedBy,
     DescriptionPayload,
+    ImportedArtifactPayload,
     NormalizedType,
+    SourceFormat,
     TablePayload,
 )
 from dla.bundle.writer import write_artifact, write_manifest
+from dla.reconciliation import reconcile
 from dla.web.app import create_app
 
 _TS = datetime(2026, 1, 1, tzinfo=UTC)
@@ -77,6 +81,23 @@ def _seed(bundle: Path) -> None:
     write_artifact(bundle, table, body="stub")
     write_artifact(bundle, col_status, body="stub")
     write_artifact(bundle, desc, body=desc.text, md_exclude_keys={"text"})
+    # An imported doc that contradicts the column type -> a reconciliation conflict.
+    imp = ImportedArtifactPayload(
+        artifact_id="imported_artifact:csv_dictionary:public.orders:status",
+        source_id="s",
+        provenance=Provenance.CLIENT_PROVIDED,
+        created_at=_TS,
+        updated_at=_TS,
+        created_by=CreatedBy.IMPORTER,
+        created_by_detail="dict.csv",
+        source_format=SourceFormat.CSV_DICTIONARY,
+        source_path="dict.csv",
+        target_artifact_type=ArtifactType.DESCRIPTION,
+        target_ref="column:public.orders:status",
+        raw_payload={"data_type": "integer"},
+        proposed_value="Numeric status code per the client dictionary.",
+    )
+    write_artifact(bundle, imp, body=imp.proposed_value)
     write_manifest(
         bundle,
         BundleManifest(
@@ -86,6 +107,7 @@ def _seed(bundle: Path) -> None:
             bundle_root=str(bundle),
         ),
     )
+    reconcile(bundle, source_id="s")  # -> one `conflict` for status (type mismatch)
 
 
 def _free_port() -> int:
