@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}DLA — SME Review{% endblock %}</title>
+  <link rel="stylesheet" href="/static/dla.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">DLA · SME Review</a>
+    <nav class="nav"><a href="/tables">Tables</a> <a href="/review-queue">Review queue</a></nav>
+    <div class="cov" id="coverage">{% include "partials/coverage.html" %}</div>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="foot">
+    bundle: <code>{{ view.bundle_root }}</code> · source: <strong>{{ view.source_id }}</strong>
+  </footer>
+</body>
+</html>

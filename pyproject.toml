@@ -21,6 +21,9 @@ dependencies = [
     "jinja2>=3.1.4,<4",
     "structlog>=24.1.0,<25",
     "litellm>=1.40.0,<2",
+    "fastapi>=0.111.0,<0.115",
+    "uvicorn>=0.30.0,<1",
+    "python-multipart>=0.0.9,<1",
 ]
 
 [project.scripts]
@@ -32,6 +35,7 @@ dev = [
     "ruff>=0.4.0,<1",
     "mypy>=1.10.0,<2",
     "types-PyYAML>=6.0.12,<7",
+    "httpx>=0.27.0,<1",
 ]
 
 [build-system]
@@ -84,4 +88,8 @@ markers = [
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning:pydantic.*",
+    # Third-party import-time warnings from the web stack (not our code):
+    "ignore::PendingDeprecationWarning:multipart",
+    "ignore::PendingDeprecationWarning:starlette.*",
+    "ignore::DeprecationWarning:starlette.*",
 ]

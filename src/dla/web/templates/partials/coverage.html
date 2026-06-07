@@ -1,0 +1,7 @@
+<span class="cov-wrap">
+  {% for c in coverage %}
+  <span class="cov-item" title="{{ c.reviewed }}/{{ c.total }} SME-confirmed">
+    {{ c.label }}: <strong>{{ c.pct }}%</strong>
+  </span>
+  {% endfor %}
+</span>
