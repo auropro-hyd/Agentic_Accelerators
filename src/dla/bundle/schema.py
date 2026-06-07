@@ -232,6 +232,47 @@ class ReadinessIssuePayload(CommonFields):
     suggestion: str | None = None
 
 
+# --- M5 entities (client-doc import + reconciliation) ---
+
+
+class SourceFormat(StrEnum):
+    CSV_DICTIONARY = "csv_dictionary"
+    EXCEL_DICTIONARY = "excel_dictionary"
+    MARKDOWN_NOTES = "markdown_notes"
+    DBT_MANIFEST = "dbt_manifest"
+
+
+class ReconciliationBucket(StrEnum):
+    MATCH = "match"
+    CONFLICT = "conflict"
+    GAP_DOC_ONLY = "gap-doc-only"
+    GAP_SOURCE_ONLY = "gap-source-only"
+
+
+class ImportedArtifactPayload(CommonFields):
+    """One record imported from client documentation (data-model.md §E9)."""
+
+    artifact_type: Literal[ArtifactType.IMPORTED_ARTIFACT] = ArtifactType.IMPORTED_ARTIFACT
+    source_format: SourceFormat
+    source_path: str
+    target_artifact_type: ArtifactType
+    target_ref: str | None = None
+    raw_payload: dict[str, Any] = Field(default_factory=dict)
+    proposed_value: str
+
+
+class ReconciliationResultPayload(CommonFields):
+    """Classification of one imported artifact vs the discovered schema (§E10)."""
+
+    artifact_type: Literal[ArtifactType.RECONCILIATION_RESULT] = (
+        ArtifactType.RECONCILIATION_RESULT
+    )
+    imported_ref: str
+    bucket: ReconciliationBucket
+    evidence: dict[str, Any] = Field(default_factory=dict)
+    sme_decision: dict[str, Any] | None = None
+
+
 # --- Bundle manifest (top-level) ---
 
 

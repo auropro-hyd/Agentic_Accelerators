@@ -13,9 +13,11 @@ from dla.bundle.schema import (
     ColumnPayload,
     CommonFields,
     DescriptionPayload,
+    ImportedArtifactPayload,
     IndexPayload,
     ProfilePayload,
     ReadinessIssuePayload,
+    ReconciliationResultPayload,
     RelationshipPayload,
     SourcePayload,
     TablePayload,
@@ -30,6 +32,8 @@ _MODEL_FOR_TYPE: dict[ArtifactType, type[CommonFields]] = {
     ArtifactType.PROFILE: ProfilePayload,
     ArtifactType.READINESS_ISSUE: ReadinessIssuePayload,
     ArtifactType.DESCRIPTION: DescriptionPayload,
+    ArtifactType.IMPORTED_ARTIFACT: ImportedArtifactPayload,
+    ArtifactType.RECONCILIATION_RESULT: ReconciliationResultPayload,
 }
 
 
