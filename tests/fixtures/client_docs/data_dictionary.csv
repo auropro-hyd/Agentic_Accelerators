@@ -1,0 +1,5 @@
+table,column,description,data_type
+public.orders,status,"Order fulfilment status: placed, shipped, or cancelled.",varchar
+public.customers,email,"Primary contact email address for the customer; unique.",varchar
+public.orders,id,"Order identifier, stored as a textual order code.",varchar
+public.orders,discount_pct,"Percentage discount applied to the order total.",numeric

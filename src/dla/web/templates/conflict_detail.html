@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Resolve conflict — DLA{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/imports/conflicts">← Conflicts</a></p>
+<h1>Resolve conflict</h1>
+<p class="meta">Target: <code>{{ c.target_ref or "—" }}</code> · {{ c.evidence.get("reason", "") }}</p>
+
+<div id="resolver">
+<div class="sidebyside">
+  <section class="desc side">
+    <h3>Client documentation</h3>
+    <p class="desc-text">{{ c.doc_value }}</p>
+    <p class="prov">client-provided · {{ c.doc_source }}</p>
+  </section>
+  <section class="desc side">
+    <h3>Discovered evidence</h3>
+    {% if c.discovered_column %}
+      <p><code>{{ c.discovered_column.data_type }}</code> ({{ c.discovered_column.normalized_type }})</p>
+    {% endif %}
+    {% if c.discovered_description %}
+      <p class="desc-text">{{ c.discovered_description.text }}</p>
+      <p class="prov">{{ c.discovered_description.provenance }}</p>
+    {% else %}
+      <p class="empty">No current description.</p>
+    {% endif %}
+    {% if c.profile %}
+      <p class="meta">nulls {{ (c.profile.null_rate * 100)|round(1) }}%
+      {% if c.profile.top_values %}· top: {% for tv in c.profile.top_values[:3] %}<code>{{ tv.value }}</code> {% endfor %}{% endif %}</p>
+    {% endif %}
+  </section>
+</div>
+
+<form class="edit-form" hx-post="/imports/conflicts/{{ c.key }}/resolve"
+      hx-target="#resolver" hx-swap="outerHTML">
+  <label>Resolution</label>
+  <div class="actions">
+    <button type="submit" name="chosen_side" value="doc" class="btn">Use doc</button>
+    <button type="submit" name="chosen_side" value="data" class="btn ghost">Use data</button>
+  </div>
+  <label for="merged_text">…or write a merged description</label>
+  <textarea id="merged_text" name="merged_text" rows="3" placeholder="optional merged text"></textarea>
+  <div class="actions">
+    <button type="submit" name="chosen_side" value="merged" class="btn">Save merged</button>
+  </div>
+</form>
+
+<form hx-post="/imports/conflicts/{{ c.key }}/defer" hx-target="#resolver" hx-swap="outerHTML">
+  <button type="submit" class="btn ghost">Defer for later</button>
+</form>
+</div>
+{% endblock %}

@@ -15,8 +15,9 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
+from dla.bundle.layout import filename_stem_for_artifact_id
 from dla.bundle.provenance import Provenance
 from dla.bundle.reader import iter_artifacts, load_manifest
 from dla.bundle.schema import (
@@ -24,9 +25,12 @@ from dla.bundle.schema import (
     ColumnPayload,
     Confidence,
     DescriptionPayload,
+    ImportedArtifactPayload,
     ProfilePayload,
     ProfileStatus,
     ReadinessIssuePayload,
+    ReconciliationBucket,
+    ReconciliationResultPayload,
     TablePayload,
 )
 
@@ -81,6 +85,31 @@ class CoverageStat:
 
 
 @dataclass(frozen=True)
+class ConflictRow:
+    key: str  # URL-safe id (the reconciliation result's filename stem)
+    imported_ref: str
+    target_ref: str | None
+    doc_value: str
+    evidence: dict[str, Any]
+    resolved: bool
+
+
+@dataclass(frozen=True)
+class ConflictDetail:
+    key: str
+    target_ref: str | None
+    evidence: dict[str, Any]
+    sme_decision: dict[str, Any] | None
+    # doc side
+    doc_value: str
+    doc_source: str
+    # data side (discovered)
+    discovered_column: ColumnPayload | None
+    profile: ProfilePayload | None
+    discovered_description: DescriptionPayload | None
+
+
+@dataclass(frozen=True)
 class QueueItem:
     """A column awaiting (or done with) SME review, with attention reasons."""
 
@@ -130,6 +159,21 @@ class BundleView:
             for ref in issue.affected_artifacts:
                 if ref.startswith("column:"):
                     self._readiness_by_col[ref].append(str(issue.issue_type))
+        # M5: imported artifacts + reconciliation results (for the conflict UI).
+        self.imported: dict[str, ImportedArtifactPayload] = {
+            a.artifact_id: a
+            for a in cast(
+                list[ImportedArtifactPayload],
+                iter_artifacts(bundle_root, ArtifactType.IMPORTED_ARTIFACT),
+            )
+        }
+        self.reconciliation: list[ReconciliationResultPayload] = cast(
+            list[ReconciliationResultPayload],
+            iter_artifacts(bundle_root, ArtifactType.RECONCILIATION_RESULT),
+        )
+        self._results_by_key: dict[str, ReconciliationResultPayload] = {
+            filename_stem_for_artifact_id(r.artifact_id): r for r in self.reconciliation
+        }
 
     # -- landing ---------------------------------------------------------
     @property
@@ -280,6 +324,57 @@ class BundleView:
         ]
         items.sort(key=lambda i: (i.priority, i.table_id, i.name))
         return items
+
+    # -- reconciliation / conflicts (M5) ---------------------------------
+    def reconciliation_summary(self) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for r in self.reconciliation:
+            out[str(r.bucket)] = out.get(str(r.bucket), 0) + 1
+        return out
+
+    def conflicts(self) -> list[ConflictRow]:
+        rows: list[ConflictRow] = []
+        for key, r in sorted(self._results_by_key.items()):
+            if r.bucket != ReconciliationBucket.CONFLICT:
+                continue
+            imp = self.imported.get(r.imported_ref)
+            rows.append(
+                ConflictRow(
+                    key=key,
+                    imported_ref=r.imported_ref,
+                    target_ref=imp.target_ref if imp else None,
+                    doc_value=imp.proposed_value if imp else "(imported artifact missing)",
+                    evidence=dict(r.evidence),
+                    resolved=r.sme_decision is not None,
+                )
+            )
+        return rows
+
+    def get_conflict(self, key: str) -> ConflictDetail | None:
+        r = self._results_by_key.get(key)
+        if r is None or r.bucket != ReconciliationBucket.CONFLICT:
+            return None
+        imp = self.imported.get(r.imported_ref)
+        target = imp.target_ref if imp else None
+        col = self.columns_by_id_get(target) if target else None
+        desc = self.descriptions.get(target) if target else None
+        return ConflictDetail(
+            key=key,
+            target_ref=target,
+            evidence=dict(r.evidence),
+            sme_decision=r.sme_decision,
+            doc_value=imp.proposed_value if imp else "",
+            doc_source=imp.source_path if imp else "",
+            discovered_column=col,
+            profile=self.profiles.get(target) if target else None,
+            discovered_description=desc,
+        )
+
+    def columns_by_id_get(self, artifact_id: str) -> ColumnPayload | None:
+        return self._columns_by_id.get(artifact_id)
+
+    def result_for_key(self, key: str) -> ReconciliationResultPayload | None:
+        return self._results_by_key.get(key)
 
     def strong_pending_columns(self, table_id: str) -> list[ColumnPayload]:
         """Columns in a table whose description is Strong and not yet SME-confirmed."""
