@@ -17,9 +17,9 @@ def test_resolve_conflict_doc_side_writes_reconciled(
 ) -> None:
     base_url, bundle = live_server
     page.goto(f"{base_url}/imports/conflicts")
-    page.click("text=Resolve")
+    page.get_by_role("link", name="Resolve").first.click()
     page.wait_for_selector("text=Client documentation")
-    page.click("button:has-text('Use doc')")
+    page.get_by_role("button", name="Use doc").click()
     page.wait_for_selector("text=resolved")
 
     # The chosen doc text becomes an sme-authored description on disk.
