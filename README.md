@@ -17,9 +17,9 @@ markdown + JSON files describing what it found.
 | ----------------------------------------------------------- | ---------- |
 | **Schema discovery, tagging, and bundle writing (M1)**      | Released   |
 | **Column profiling and readiness reporting (M2)**           | Released   |
-| Auto-drafted descriptions and reviewer edit loop (M3)       | Released   |
-| Web review interface for non-technical reviewers (M4)       | Upcoming   |
-| Client-documentation import and reconciliation (M5)         | Upcoming   |
+| **Auto-drafted descriptions and reviewer edit loop (M3)**   | Released   |
+| **Web review interface for non-technical reviewers (M4)**   | Released   |
+| **Client-documentation import and reconciliation (M5)**     | Released   |
 | Business glossary and pattern catalog (M6)                  | Upcoming   |
 | KPI workbook ingest and coverage analysis (M7)              | Upcoming   |
 | Strategy recommender and published bundle schema (M8)       | Upcoming   |
@@ -41,6 +41,9 @@ overwritten).
 - [Install](#install)
 - [Quickstart with the built-in Postgres fixture](#quickstart-with-the-built-in-postgres-fixture)
 - [Quickstart with a CSV folder](#quickstart-with-a-csv-folder)
+- [Auto-drafted descriptions (M3)](#auto-drafted-descriptions-m3)
+- [Web review interface (M4)](#web-review-interface-m4)
+- [Client-documentation import and reconciliation (M5)](#client-documentation-import-and-reconciliation-m5)
 - [Commands](#commands)
 - [Exit codes](#exit-codes)
 - [Configuration](#configuration)
@@ -86,15 +89,20 @@ bundle/
 │   └── indexes/       <schema>.<table>.<idx>.{md,json}
 ├── profiles/                                # one pair per column (M2)
 │   └── <schema>.<table>.<col>.{md,json}
-└── readiness/                               # data-quality report (M2)
-    ├── readiness.md                         # human-readable summary, severity-sorted
-    └── issues/
-        └── readiness_issue.<type>.<seq>.{md,json}
+├── readiness/                               # data-quality report (M2)
+│   ├── readiness.md                         # human-readable summary, severity-sorted
+│   └── issues/
+│       └── readiness_issue.<type>.<seq>.{md,json}
+├── descriptions/                            # auto-drafted + reviewed text (M3/M4)
+│   ├── table.<schema>.<table>.{md,json}
+│   └── column.<schema>.<table>.<col>.{md,json}
+└── imports/                                 # client-doc import + reconciliation (M5)
+    ├── artifacts/        <format>.<target>.{md,json}     # imported records
+    └── reconciliation/   <result-key>.{md,json}          # match / conflict / gap buckets
 ```
 
-Upcoming milestones add more sub-directories (`descriptions/`,
-`glossary/`, `patterns/`, `kpi/`, `imports/`, `coverage/`,
-`recommendation/`) — each additive.
+Upcoming milestones add more sub-directories (`glossary/`, `patterns/`,
+`kpi/`, `coverage/`, `recommendation/`) — each additive.
 
 The **markdown** carries YAML frontmatter for structured metadata plus
 a freeform body. The body is the field that reviewers edit. The
@@ -133,13 +141,11 @@ exist:
 | Value                          | Meaning                                                                                  |
 | ------------------------------ | ---------------------------------------------------------------------------------------- |
 | `discovered`                   | Came from the connector (database introspection or CSV parsing).                          |
-| `client-provided`              | Loaded from a client-supplied dictionary (Upcoming).                                      |
-| `client-provided-reconciled`   | Reconciled against discovered evidence (Upcoming).                                        |
-| `sme-authored`                 | Authored by a subject-matter reviewer.                                                    |
-
-Additional provenance values for auto-generated drafts and their
-post-edit states are introduced by upcoming milestones; the same state
-machine governs all of them.
+| `ai-drafted`                   | Auto-drafted from discovered facts + profile evidence (M3).                               |
+| `ai-drafted-edited`            | An auto-draft a reviewer edited or accepted (M3/M4).                                       |
+| `client-provided`              | Loaded from a client-supplied dictionary, notes, or dbt manifest (M5).                    |
+| `client-provided-reconciled`   | A client-provided import a reviewer reconciled against discovered evidence (M5).          |
+| `sme-authored`                 | Authored or settled by a subject-matter reviewer.                                         |
 
 A state machine controls which provenance can overwrite which. The
 bundle writer enforces it — **reviewer edits are never silently
@@ -160,9 +166,14 @@ is the substrate that makes safe, repeatable re-runs possible.
 - Docker (only required for the included Postgres fixture; not for
   pointing the tool at your own database)
 
-The tool itself depends on SQLAlchemy + psycopg2 (Postgres),
-pandas (CSV), Typer (CLI), Pydantic (config), and structlog
-(structured logging). Everything resolves through `uv sync`.
+The tool depends on SQLAlchemy + psycopg2 (Postgres), pandas + openpyxl
+(CSV / Excel), Typer (CLI), Pydantic (config), structlog (structured
+logging), a provider-agnostic LLM gateway for auto-drafting (M3),
+FastAPI + Jinja2 + HTMX for the local web interface (M4), and rapidfuzz
+for reconciliation matching (M5). Everything resolves through `uv sync`.
+
+The web interface and the LLM gateway run locally; no data leaves the
+machine unless you explicitly configure a hosted model provider.
 
 ---
 
@@ -251,6 +262,92 @@ accordingly, with the supporting signals listed on each artifact.
 
 ---
 
+## Auto-drafted descriptions (M3)
+
+`dla describe` drafts a plain-language description for every table and
+column, grounded in the discovered schema and the M2 profile evidence
+— it does not invent facts. Each draft records the model, the prompt
+version, the grounding fields it used, and a grounding hash, so re-runs
+that find unchanged evidence cost nothing and reviewer edits are never
+overwritten.
+
+```bash
+# Preview the exact prompt for one column without calling a model:
+uv run dla describe --config config/examples/postgres_minimal.yaml \
+  --column "column:public.orders:status" --mode dry-run
+
+# Draft every table + column (the model provider is config-driven):
+uv run dla describe --config config/examples/postgres_minimal.yaml --mode live
+
+# Re-run: unchanged grounding is skipped (idempotent), no tokens spent.
+```
+
+The model is selected entirely in configuration (see
+[Configuration](#configuration)) — a local model for cost-free
+development, or any hosted provider for an engagement, with no code
+change. A reviewer can edit a draft's markdown body and run
+`dla describe --commit-edits` to lock the edit in; the writer then
+protects it from any future re-draft.
+
+## Web review interface (M4)
+
+`dla ui` serves a local, single-user review interface over the bundle.
+Reviewers browse tables and columns, see each description with its
+confidence and the evidence behind it, edit or accept drafts in place,
+work a confidence-prioritized review queue, and bulk-accept the
+high-confidence drafts in a table. Every save writes straight back to
+the same markdown files — there is no separate database, and edits made
+in the browser and in an editor are interchangeable.
+
+```bash
+uv run dla ui --config config/examples/postgres_minimal.yaml
+# serves http://127.0.0.1:8765 and opens a browser
+
+# Record who is reviewing (stamped on each edit):
+export DLA_SME_NAME="Data Steward"
+uv run dla ui --config config/examples/postgres_minimal.yaml --no-browser --view review-queue
+```
+
+The interface binds to a local address only; it has no network-exposed
+host option and no authentication layer (single-user, local use).
+Description text entered in the browser is HTML-escaped on render.
+
+## Client-documentation import and reconciliation (M5)
+
+When a client already has documentation — a CSV/Excel data dictionary,
+structured markdown notes, or a dbt `manifest.json` — `dla import`
+pulls it in as `client-provided` artifacts, kept separate from the
+auto-drafts. `dla reconcile` then classifies every imported item
+against the discovered schema into four buckets: **match** (doc and
+data agree), **conflict** (they disagree, e.g. a type mismatch),
+**gap-doc-only** (documented but not in the schema), and
+**gap-source-only** (in the schema but undocumented). A reviewer
+resolves conflicts side-by-side in the web interface.
+
+```bash
+# Import a dbt manifest (read as plain JSON — no code is ever executed):
+uv run dla import --config config/examples/postgres_minimal.yaml \
+  --dbt-manifest path/to/manifest.json
+
+# Import a folder of CSV/Excel dictionaries and/or markdown notes:
+uv run dla import --config config/examples/postgres_minimal.yaml \
+  --client-docs path/to/client_docs/
+
+# Classify every imported item against the discovered schema:
+uv run dla reconcile --config config/examples/postgres_minimal.yaml
+uv run dla reconcile --config config/examples/postgres_minimal.yaml --bucket conflict
+
+# Resolve conflicts in the browser:
+uv run dla ui --config config/examples/postgres_minimal.yaml --view imports/conflicts
+```
+
+When a reviewer settles a conflict, the imported item is marked
+`client-provided-reconciled` and the chosen text is written as the
+column's description, with a `prior_sources` audit trail recording both
+the documented value and the discovered evidence it was chosen over.
+
+---
+
 ## Commands
 
 All commands take a YAML configuration via `--config <path>`. The
@@ -269,13 +366,23 @@ controls where output lands.
 | `dla profile --config <yaml> --table <schema.table>`                   | Restrict profiling to one table — useful after a schema change.                                                    |
 | `dla readiness --config <yaml>`                                        | Walk the bundle, detect data-quality issues, write `bundle/readiness/issues/*` and `bundle/readiness/readiness.md`. |
 | `dla readiness --config <yaml> --severity {critical,warning,info,all}` | Restrict terminal output to a severity (the full report is still written to disk).                                 |
+| `dla describe --config <yaml> --mode {dry-run,live}`                   | Auto-draft descriptions for tables and columns; `dry-run` prints the prompt without calling a model.                |
+| `dla describe --config <yaml> --column <id> \| --table <name>`         | Restrict drafting to one column or one table.                                                                     |
+| `dla describe --config <yaml> --commit-edits`                          | Detect reviewer-edited description bodies and lock them in (provenance becomes `ai-drafted-edited`).                |
+| `dla ui --config <yaml>`                                               | Serve the local web review interface at `127.0.0.1:8765` (flags: `--port`, `--view`, `--no-browser`).             |
+| `dla import --config <yaml> --client-docs <path>`                      | Import a CSV/Excel dictionary and/or markdown notes (file or folder) as `client-provided` artifacts.               |
+| `dla import --config <yaml> --dbt-manifest <path>`                     | Import a dbt `manifest.json` (parsed as plain JSON; no code is executed).                                           |
+| `dla reconcile --config <yaml>`                                        | Classify every imported artifact against the discovered schema into match / conflict / gap buckets.                |
+| `dla reconcile --config <yaml> --bucket <name>` / `--auto-confirm-matches` | List one bucket, or accept all `match` items in bulk.                                                          |
 
 Help for any subcommand:
 
 ```bash
 uv run dla discover --help
-uv run dla profile --help
-uv run dla readiness --help
+uv run dla describe --help
+uv run dla ui --help
+uv run dla import --help
+uv run dla reconcile --help
 ```
 
 ---
@@ -288,10 +395,12 @@ CI gates and scripts can branch on the kind of failure.
 | ---- | ---------------------------------------------------------------------------------- |
 | 0    | Success.                                                                           |
 | 1    | Generic failure (unhandled exception). Check stderr for the message.               |
-| 2    | Connection error — bad credentials, unreachable host, missing CSV folder, etc.     |
-| 3    | Configuration error — missing or malformed YAML, invalid fields, missing env var. |
+| 2    | Connection error — bad credentials, unreachable host, missing CSV folder; or an LLM-gateway/transport failure during `describe`. |
+| 3    | Configuration error — missing or malformed YAML, invalid fields, missing env var, or a usage error (e.g. a non-local UI bind host). |
+| 4    | Referenced artifact or path not found (e.g. `describe --column` / `import` target). |
+| 5    | LLM response could not be parsed during `describe`.                                |
 
-(Codes 4, 5, 6 are reserved for upcoming milestones.)
+(Code 6 is reserved for upcoming milestones.)
 
 ---
 
@@ -329,6 +438,20 @@ thresholds:
   high_null_rate_critical: 0.9             # ≥ 90% nulls → Critical
   sample_budget_rows: 10000                # default per-column sample size for profiling
   constant_column_severity_info: true      # constant-value columns land at Info (set false for Warning)
+
+llm:                                       # used by `dla describe` (M3)
+  provider: ollama                         # ollama (local) / openai / anthropic / azure / ...
+  model: llama3.2                          # model or deployment name
+  api_base: null                           # provider endpoint, when applicable
+  api_version: null                        # required for Azure OpenAI (e.g. 2024-02-15-preview)
+  api_key_env_var: DLA_LLM_API_KEY         # API key is read from this env var; never stored in YAML
+  timeout_seconds: 60
+  max_retries: 2
+
+ui:                                        # used by `dla ui` (M4)
+  host: 127.0.0.1                          # local-only by design
+  port: 8765
+  sme_name_env_var: DLA_SME_NAME           # reviewer identity stamped on edits, read from this env var
 ```
 
 ### CSV-folder example
@@ -356,12 +479,27 @@ Two ready-to-run examples ship in the repo:
 Defaults for every threshold live in `config/default.yaml`; the
 per-engagement YAML only needs to override what differs.
 
+### Model provider (LLM)
+
+`dla describe` reaches the model through a provider-agnostic gateway,
+so switching providers is a configuration change, not a code change:
+
+- **Local model** (default): a locally hosted model — cost-free,
+  reproducible, and nothing leaves the machine. Ideal for development.
+- **Hosted provider**: set `provider`, `model`, `api_base`, and (for
+  Azure) `api_version`; the API key is read from the environment
+  variable named in `api_key_env_var`.
+
+A template configuration for a hosted provider ships at
+`config/examples/azure_openai.yaml` (placeholders only — fill in your
+own endpoint and deployment, and export the key).
+
 ### Secrets
 
-Passwords and tokens are **never** stored in YAML. The config names
-the environment variable to read them from
-(`postgres.password_env_var`), and the loader fails fast with exit
-code 3 if the env var is unset.
+Passwords, API keys, and tokens are **never** stored in YAML. The
+config names the environment variable to read each from
+(`postgres.password_env_var`, `llm.api_key_env_var`), and the loader
+fails fast with exit code 3 if a required variable is unset.
 
 ---
 
@@ -376,18 +514,29 @@ code 3 if the env var is unset.
 ├── scripts/install.sh            # one-shot dev environment setup
 ├── src/dla/                      # all source code
 │   ├── bundle/                   # on-disk format: schema, layout, provenance, reader, writer
-│   ├── cli/                      # Typer CLI entrypoints
+│   ├── cli/                      # Typer CLI entrypoints (discover, profile, readiness, describe, ui, import, reconcile)
 │   ├── config/                   # pydantic config models + loader
 │   ├── connectors/               # Postgres, CSV (extensible to other providers)
 │   ├── discovery/                # schema introspection, relationship inference, confidence tagging
 │   ├── profiling/                # samplers, statistics, profile engine
 │   ├── readiness/                # data-quality checks, severity, report assembly
+│   ├── llm/                      # provider-agnostic LLM gateway (M3)
+│   ├── prompts/                  # versioned prompt templates + registry (M3)
+│   ├── describe/                 # auto-draft engine: grounding, idempotency, edit preservation (M3)
+│   ├── web/                      # local review interface: FastAPI app, routes, templates, static (M4)
+│   ├── importers/                # CSV/Excel, markdown, dbt-manifest importers + normalizer (M5)
+│   ├── reconciliation/           # matcher, classifier, resolver (M5)
 │   └── logging_ctx/              # structured logging configuration + context manager
 └── tests/
     ├── fixtures/
     │   ├── postgres/             # docker-compose + seed SQL (clean + quality-issues seeds)
-    │   └── csv/                  # synthetic CSV files
-    └── unit/                     # unit test suite
+    │   ├── csv/                  # synthetic CSV files
+    │   ├── client_docs/          # CSV dictionary + markdown notes (M5)
+    │   └── dbt/                  # sample dbt manifest.json (M5)
+    ├── unit/                     # fast unit + TestClient suite
+    ├── integration/              # import / reconciliation flows
+    ├── eval/                     # reconciliation bucketing accuracy
+    └── ui/                       # browser end-to-end (opt-in marker)
 ```
 
 ---
@@ -427,15 +576,23 @@ A future Snowflake connector is on the [Roadmap](#roadmap).
 
 ## Testing
 
-### Unit tests
+### Test suite
 
 ```bash
-uv run pytest tests/unit -q
+uv run pytest tests -q            # full suite
+uv run pytest tests/unit -q       # fast unit + TestClient subset
 ```
 
-Current count: **67 unit tests** (M1 substrate, provenance state
-machine, bundle writer, profiling statistics, readiness checks,
-configuration loader).
+The suite covers the M1 substrate, the provenance state machine, the
+bundle writer, profiling statistics, readiness checks, the
+configuration loader, the LLM gateway, the auto-draft engine, the web
+review interface (via an in-process test client), the client-doc
+importers, and reconciliation — plus a reconciliation bucketing-accuracy
+eval.
+
+Browser end-to-end tests under `tests/ui/` use the `ui` marker and are
+skipped automatically unless a browser is installed; run them
+explicitly with `uv run pytest -m ui`.
 
 ### Linting and formatting
 
@@ -480,9 +637,9 @@ increment, additive to the bundle.
 | --------- | ---------------------------------------------------------------------------------------------------- | ---------- |
 | **M1**    | Connect, discover, tag, bundle (Postgres + CSV)                                                      | Released   |
 | **M2**    | Column profiling + readiness report (Critical / Warning / Info)                                      | Released   |
-| **M3**    | Auto-drafted descriptions grounded in discovered facts and profiles; markdown review loop with edit preservation | Upcoming   |
-| **M4**    | Local web interface for reviewing and editing drafts                                                  | Upcoming   |
-| **M5**    | Client-documentation import (CSV / Excel / dbt manifest) with reconciliation against discovered evidence | Upcoming   |
+| **M3**    | Auto-drafted descriptions grounded in discovered facts and profiles; markdown review loop with edit preservation | Released   |
+| **M4**    | Local web interface for reviewing and editing drafts                                                  | Released   |
+| **M5**    | Client-documentation import (CSV / Excel / dbt manifest) with reconciliation against discovered evidence | Released   |
 | **M6**    | Cross-engagement glossary and pattern catalog (audit, junction, lookup, etc.)                         | Upcoming   |
 | **M7**    | KPI workbook ingest and coverage analysis                                                             | Upcoming   |
 | **M8**    | Strategy recommender, published bundle JSON schema, and a Snowflake connector                         | Upcoming   |
