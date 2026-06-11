@@ -14,14 +14,18 @@ from typing import Any, Literal
 
 import structlog
 
-_context: ContextVar[dict[str, str]] = ContextVar("auropro_log_context", default={})
+_context: ContextVar[dict[str, str] | None] = ContextVar("auropro_log_context", default=None)
+
+
+def _get_context() -> dict[str, str]:
+    return _context.get() or {}
 
 
 @contextmanager
 def log_context(**fields: str | None) -> Iterator[None]:
     """Bind the given fields onto every structured log entry inside the block."""
     cleaned = {k: v for k, v in fields.items() if v is not None}
-    token = _context.set({**_context.get(), **cleaned})
+    token = _context.set({**_get_context(), **cleaned})
     try:
         yield
     finally:
@@ -29,12 +33,12 @@ def log_context(**fields: str | None) -> Iterator[None]:
 
 
 def current_context() -> dict[str, str]:
-    return dict(_context.get())
+    return dict(_get_context())
 
 
 def _add_context(_: object, __: str, event_dict: dict[str, Any]) -> dict[str, Any]:
     """Merge contextvar values into every log entry."""
-    for k, v in current_context().items():
+    for k, v in _get_context().items():
         event_dict.setdefault(k, v)
     return event_dict
 
