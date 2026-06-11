@@ -34,6 +34,13 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import frontmatter
+from auropro_llm.gateway import (
+    DryRunCalled,
+    LLMGateway,
+    LLMRequest,
+    LLMResponse,
+    NullGateway,
+)
 
 from dla.bundle.layout import paths_for
 from dla.bundle.provenance import Provenance, preserves_sme_work
@@ -51,13 +58,6 @@ from dla.bundle.schema import (
     TablePayload,
 )
 from dla.bundle.writer import WriteResult, write_artifact, write_manifest
-from dla.llm.gateway import (
-    DryRunCalled,
-    LLMGateway,
-    LLMRequest,
-    LLMResponse,
-    NullGateway,
-)
 from dla.prompts.registry import render
 
 

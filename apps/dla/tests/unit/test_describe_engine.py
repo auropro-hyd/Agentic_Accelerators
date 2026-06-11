@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from auropro_llm.gateway import DryRunCalled, NullGateway
 
 from dla.bundle.provenance import Provenance
 from dla.bundle.schema import (
@@ -26,7 +27,6 @@ from dla.describe.engine import (
     describe_column,
     plan_column,
 )
-from dla.llm.gateway import DryRunCalled, NullGateway
 
 _NOW = datetime(2026, 5, 18, 10, 0, 0, tzinfo=UTC)
 
@@ -282,8 +282,9 @@ def test_parse_response_raises_on_non_json() -> None:
 
 def test_describe_column_live_writes_ai_drafted_artifact(tmp_path: Path) -> None:
     """Smoke test: a fake gateway returns a canned JSON, the engine writes a DescriptionPayload."""
+    from auropro_llm.gateway import LLMRequest, LLMResponse
+
     from dla.describe.engine import describe_column, load_existing_description
-    from dla.llm.gateway import LLMRequest, LLMResponse
 
     _seed_bundle(tmp_path)
 
@@ -335,8 +336,9 @@ def test_describe_column_live_writes_ai_drafted_artifact(tmp_path: Path) -> None
 
 def test_describe_column_idempotent_on_rerun(tmp_path: Path) -> None:
     """Second run with same grounding skips the LLM call entirely."""
+    from auropro_llm.gateway import LLMRequest, LLMResponse
+
     from dla.describe.engine import describe_column
-    from dla.llm.gateway import LLMRequest, LLMResponse
 
     _seed_bundle(tmp_path)
 
@@ -366,8 +368,9 @@ def test_describe_column_idempotent_on_rerun(tmp_path: Path) -> None:
 
 def test_describe_column_force_redrafts(tmp_path: Path) -> None:
     """--force bypasses idempotency and calls the LLM again."""
+    from auropro_llm.gateway import LLMRequest, LLMResponse
+
     from dla.describe.engine import describe_column
-    from dla.llm.gateway import LLMRequest, LLMResponse
 
     _seed_bundle(tmp_path)
 
@@ -399,12 +402,13 @@ def test_describe_column_force_redrafts(tmp_path: Path) -> None:
 
 def test_describe_column_preserves_sme_edits(tmp_path: Path) -> None:
     """Once an SME edits a description (provenance=ai-drafted-edited), no re-run touches it."""
+    from auropro_llm.gateway import LLMRequest, LLMResponse
+
     from dla.describe.engine import (
         commit_sme_edits,
         describe_column,
         load_existing_description,
     )
-    from dla.llm.gateway import LLMRequest, LLMResponse
 
     _seed_bundle(tmp_path)
 
@@ -459,8 +463,9 @@ def test_describe_column_preserves_sme_edits(tmp_path: Path) -> None:
 
 
 def test_commit_sme_edits_no_op_when_body_unchanged(tmp_path: Path) -> None:
+    from auropro_llm.gateway import LLMRequest, LLMResponse
+
     from dla.describe.engine import commit_sme_edits, describe_column
-    from dla.llm.gateway import LLMRequest, LLMResponse
 
     _seed_bundle(tmp_path)
 
@@ -482,8 +487,9 @@ def test_commit_sme_edits_no_op_when_body_unchanged(tmp_path: Path) -> None:
 
 
 def test_describe_table_writes_ai_drafted_artifact(tmp_path: Path) -> None:
+    from auropro_llm.gateway import LLMRequest, LLMResponse
+
     from dla.describe.engine import describe_table, load_existing_description
-    from dla.llm.gateway import LLMRequest, LLMResponse
 
     _seed_bundle(tmp_path)
     # describe_table needs the customer_id column too (to render the columns block).
@@ -526,8 +532,9 @@ def test_describe_table_writes_ai_drafted_artifact(tmp_path: Path) -> None:
 
 
 def test_describe_all_iterates_tables_and_columns(tmp_path: Path) -> None:
+    from auropro_llm.gateway import LLMRequest, LLMResponse
+
     from dla.describe.engine import describe_all
-    from dla.llm.gateway import LLMRequest, LLMResponse
 
     _seed_bundle(tmp_path)
     write_artifact(

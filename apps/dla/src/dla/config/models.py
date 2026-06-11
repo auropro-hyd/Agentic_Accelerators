@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
+from auropro_llm.config import LLMConfig as _BaseLLMConfig
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -102,18 +103,10 @@ class ThresholdsConfig(BaseModel):
     """When True, constant columns are flagged as `info`; when False, `warning`."""
 
 
-class LLMConfig(BaseModel):
-    """LLM gateway settings. Used from M3 onward."""
+class LLMConfig(_BaseLLMConfig):
+    """dla's LLM settings — same as auropro-llm's, with dla's historical env-var default."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    provider: str = "ollama"
-    model: str = "llama3.2"
-    api_base: str | None = None
-    api_version: str | None = None  # required by Azure OpenAI (e.g. "2024-02-15-preview")
     api_key_env_var: str = "DLA_LLM_API_KEY"
-    timeout_seconds: int = 60
-    max_retries: int = 2
 
 
 class UIConfig(BaseModel):

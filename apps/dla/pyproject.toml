@@ -27,6 +27,7 @@ dependencies = [
     "openpyxl>=3.1,<4",
     "rapidfuzz>=3.9,<4",
     "auropro-core>=0.1,<0.2",
+    "auropro-llm>=0.1,<0.2",
 ]
 
 [project.scripts]
@@ -43,6 +44,7 @@ dev = [
 
 [tool.uv.sources]
 auropro-core = { workspace = true }
+auropro-llm = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

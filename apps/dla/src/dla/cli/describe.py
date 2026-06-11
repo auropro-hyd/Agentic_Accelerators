@@ -32,6 +32,7 @@ from typing import Annotated
 
 import typer
 from auropro_core.logging import configure_logging, get_logger
+from auropro_llm.gateway import LLMGatewayError, build_gateway
 
 from dla.config.loader import ConfigError, load_config
 from dla.describe.engine import (
@@ -43,7 +44,6 @@ from dla.describe.engine import (
     plan_column,
     plan_table,
 )
-from dla.llm.gateway import LLMGatewayError, build_gateway
 from dla.prompts.registry import PromptNotFoundError
 
 app = typer.Typer(help="Render or send the auto-draft prompt for an artifact.")
