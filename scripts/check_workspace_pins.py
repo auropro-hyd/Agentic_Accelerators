@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Guard: every `{ workspace = true }` uv source must also carry an explicit
-version range in [project].dependencies.
+version range in [project].dependencies or [project.optional-dependencies].
 
 uv strips tool.uv.sources from built wheels and does NOT auto-pin sibling
 versions (astral-sh/uv#9811) — without the explicit range, published wheels
@@ -28,14 +28,26 @@ def find_unpinned_workspace_deps(pyproject_text: str) -> list[str]:
     if not workspace_pkgs:
         return []
 
-    deps = data.get("project", {}).get("dependencies", [])
+    # Collect deps from [project].dependencies AND all [project.optional-dependencies] groups.
+    project = data.get("project", {})
+    all_deps: list[str] = list(project.get("dependencies", []))
+    for group_deps in project.get("optional-dependencies", {}).values():
+        all_deps.extend(group_deps)
+
     pinned: set[str] = set()
-    for dep in deps:
-        m = re.match(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(.*)$", dep)
+    # Name is everything up to the first version operator, '[' (extras), ';' (marker),
+    # or whitespace.  Everything after the name is checked for a version operator.
+    _name_re = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)([<>=!~\[\s;].*)?$")
+    for dep in all_deps:
+        m = _name_re.match(dep)
         if not m:
             continue
-        name, rest = m.group(1), m.group(2).strip()
-        if rest:  # any specifier counts as pinned
+        name = m.group(1)
+        rest = dep[len(name):]  # everything after the bare name
+        # A dep is pinned only if there is a version operator in the specifier part
+        # (before any ';' environment marker).
+        specifier_part = rest.split(";")[0] if ";" in rest else rest
+        if re.search(r"[<>=!~]", specifier_part):
             pinned.add(name.lower().replace("_", "-"))
 
     return sorted(
@@ -47,7 +59,9 @@ def find_unpinned_workspace_deps(pyproject_text: str) -> list[str]:
 def main() -> int:
     root = Path(__file__).resolve().parent.parent
     failures: list[str] = []
-    for pyproject in sorted(root.glob("*/*/pyproject.toml")):  # libs/*, apps/*
+    for pyproject in sorted(
+        [*root.glob("libs/*/pyproject.toml"), *root.glob("apps/*/pyproject.toml")]
+    ):
         unpinned = find_unpinned_workspace_deps(pyproject.read_text(encoding="utf-8"))
         failures.extend(f"{pyproject.relative_to(root)}: {pkg}" for pkg in unpinned)
     if failures:

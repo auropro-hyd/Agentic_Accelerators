@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = { text = "Proprietary" }
 authors = [{ name = "Auropro" }]
+classifiers = ["Private :: Do Not Upload"]
 dependencies = [
     "pydantic>=2.7.0,<3",
     "litellm>=1.40.0,<2",
@@ -43,6 +44,7 @@ ignore = ["E501"]
 [tool.semantic_release]
 tag_format = "llm-v{version}"
 version_toml = ["pyproject.toml:project.version"]
+version_variables = ["src/auropro_llm/__init__.py:__version__"]
 commit_parser = "conventional-monorepo"
 build_command = "uv build --package auropro-llm -o ../../dist"
 

@@ -150,6 +150,7 @@ clients above the revenue cap.
 
 > ✅ Steps 1–4 implemented on `feat/workspace-restructure` → [PR #9](https://github.com/auropro-hyd/Agentic_Accelerators/pull/9)
 > (2026-06-11; 134 baseline tests redistributed 124 dla + 10 llm; +11 core, +6 scripts; CI live).
+> Deferred from step 3: guardrails interface stub (YAGNI until first consumer); structlog stream-caching fix tracked in PR #9 review.
 
 1. **Restructure shell:** root becomes virtual workspace; `git mv` dla into `apps/dla/` (or
    `libs/dla` if Uday prefers it consumable); CI stays green. *(Coordinate with Uday — his repo,

@@ -8,3 +8,4 @@ psycopg2-binary  # GNU Library or Lesser General Public License (LGPL) — binar
 tqdm  # MPL-2.0 AND MIT — dual-licensed; MPL-2.0 allows use in proprietary software (file-level copyleft only)
 certifi  # Mozilla Public License 2.0 (MPL 2.0) — transitive via requests; MPL-2.0 file-level copyleft, no impact on proprietary code
 pathspec  # Mozilla Public License 2.0 (MPL 2.0) — transitive via hatchling/pip-licenses (build/dev tooling); not shipped in deliverables
+tiktoken  # MIT License — packages metadata includes full license text instead of classifier string; genuinely MIT (OpenAI, Shantanu Jain)

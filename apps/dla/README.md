@@ -182,11 +182,12 @@ machine unless you explicitly configure a hosted model provider.
 ```bash
 git clone https://github.com/auropro-hyd/Agentic_Accelerators.git
 cd Agentic_Accelerators
-bash scripts/install.sh
+bash apps/dla/scripts/install.sh
 ```
 
-The install script runs `uv sync` and registers the package for
-editable use so `uv run dla` finds the source under `src/dla/`.
+The install script cds to the workspace root, runs `uv sync --all-packages`
+(populating the shared `.venv` at the repo root), and registers the package for
+editable use so `uv run dla` finds the source under `apps/dla/src/dla/`.
 
 Verify:
 
@@ -506,12 +507,11 @@ fails fast with exit code 3 if a required variable is unset.
 ## Project structure
 
 ```text
-.
+.                                 # apps/dla/ (within the Agentic_Accelerators workspace)
 ├── config/                       # default + example YAML configs
 │   ├── default.yaml
 │   └── examples/
-├── docs/                         # public-facing design + scope docs
-├── scripts/install.sh            # one-shot dev environment setup
+├── scripts/install.sh            # one-shot dev environment setup (cds to workspace root)
 ├── src/dla/                      # all source code
 │   ├── bundle/                   # on-disk format: schema, layout, provenance, reader, writer
 │   ├── cli/                      # Typer CLI entrypoints (discover, profile, readiness, describe, ui, import, reconcile)
@@ -520,13 +520,13 @@ fails fast with exit code 3 if a required variable is unset.
 │   ├── discovery/                # schema introspection, relationship inference, confidence tagging
 │   ├── profiling/                # samplers, statistics, profile engine
 │   ├── readiness/                # data-quality checks, severity, report assembly
-│   ├── llm/                      # provider-agnostic LLM gateway (M3)
 │   ├── prompts/                  # versioned prompt templates + registry (M3)
 │   ├── describe/                 # auto-draft engine: grounding, idempotency, edit preservation (M3)
 │   ├── web/                      # local review interface: FastAPI app, routes, templates, static (M4)
 │   ├── importers/                # CSV/Excel, markdown, dbt-manifest importers + normalizer (M5)
-│   ├── reconciliation/           # matcher, classifier, resolver (M5)
-│   └── logging_ctx/              # structured logging configuration + context manager
+│   └── reconciliation/           # matcher, classifier, resolver (M5)
+│   # Note: LLM gateway (llm/) and logging/config (logging_ctx/) have been extracted
+│   # into workspace packages: auropro-llm (libs/llm) and auropro-core (libs/core).
 └── tests/
     ├── fixtures/
     │   ├── postgres/             # docker-compose + seed SQL (clean + quality-issues seeds)
@@ -546,13 +546,14 @@ fails fast with exit code 3 if a required variable is unset.
 ### One-time setup
 
 ```bash
-bash scripts/install.sh
+# from the workspace root (Agentic_Accelerators/):
+bash apps/dla/scripts/install.sh
 ```
 
-This wraps:
+This cds to the workspace root and wraps:
 
 ```bash
-uv sync
+uv sync --all-packages   # populates shared .venv at workspace root
 # plus a macOS-only fix-up of the editable-install .pth file
 ```
 
@@ -617,7 +618,7 @@ diff /tmp/before.txt /tmp/after.txt && echo "IDEMPOTENT"
 
 | Symptom                                                  | Likely cause                                                        | Fix                                                                                                                              |
 | -------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `ModuleNotFoundError: No module named 'dla'`             | Editable-install `.pth` file not registered                         | Re-run `bash scripts/install.sh`                                                                                                |
+| `ModuleNotFoundError: No module named 'dla'`             | Editable-install `.pth` file not registered                         | Re-run `bash apps/dla/scripts/install.sh` from the workspace root                                                               |
 | `connection error: ... password authentication failed`   | `*_password_env_var` is unset, or value is wrong                    | `export DLA_DB_PASSWORD=...` (or the variable named in your YAML)                                                                |
 | Exit code 3, no obvious message                          | Bad / missing config path, malformed YAML, or invalid field         | Check stderr for the validation error string                                                                                     |
 | Postgres fixture container will not start                | Port 55432 already in use on the host                               | `lsof -i :55432` to find the conflicting process, or change the host port in `tests/fixtures/postgres/docker-compose.yaml`     |
