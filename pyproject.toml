@@ -7,6 +7,10 @@ classifiers = ["Private :: Do Not Upload"]
 
 [tool.uv]
 package = false
+# typer >=0.24 CliRunner closes the captured stderr that dla's structlog logger
+# caches (cache_logger_on_first_use), failing dla web tests. Constrained until
+# dla's logging is fixed to not cache the stream (tracked in the restructure PR).
+constraint-dependencies = ["typer<0.24"]
 
 [tool.uv.workspace]
 members = ["libs/*", "apps/*"]
