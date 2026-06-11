@@ -39,3 +39,12 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
 ignore = ["E501"]
+
+[tool.semantic_release]
+tag_format = "llm-v{version}"
+version_toml = ["pyproject.toml:project.version"]
+commit_parser = "conventional-monorepo"
+build_command = "uv build --package auropro-llm -o ../../dist"
+
+[tool.semantic_release.commit_parser_options]
+path_filters = ["."]
