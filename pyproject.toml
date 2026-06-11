@@ -1,35 +1,15 @@
 [project]
-name = "dla"
-version = "0.1.0"
-description = "Data Layer Accelerator — Knowledge Creation Workbench for the Agentic Application Accelerator"
-readme = "README.md"
+name = "auropro-accelerators"
+version = "0.0.0"
+description = "AuroPro Agentic AI Accelerators — uv workspace root (not published)"
 requires-python = ">=3.11,<3.13"
-license = { text = "Proprietary" }
-authors = [{ name = "Auropro" }]
-# M1-only runtime deps. M2/M3+ deps (snowflake, litellm, fastapi, dbt-parser,
-# rapidfuzz, etc.) get added when their milestone work starts. Keeping the
-# install footprint small keeps `uv sync` fast on slow networks.
-dependencies = [
-    "sqlalchemy>=2.0.30,<3",
-    "psycopg2-binary>=2.9.9,<3",
-    "pandas>=2.2.2,<3",
-    "pydantic>=2.7.0,<3",
-    "pydantic-settings>=2.3.0,<3",
-    "pyyaml>=6.0.1,<7",
-    "typer>=0.12.3,<1",
-    "python-frontmatter>=1.1.0,<2",
-    "jinja2>=3.1.4,<4",
-    "structlog>=24.1.0,<25",
-    "litellm>=1.40.0,<2",
-    "fastapi>=0.111.0,<0.115",
-    "uvicorn>=0.30.0,<1",
-    "python-multipart>=0.0.9,<1",
-    "openpyxl>=3.1,<4",
-    "rapidfuzz>=3.9,<4",
-]
+classifiers = ["Private :: Do Not Upload"]
 
-[project.scripts]
-dla = "dla.cli.main:app"
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["libs/*", "apps/*"]
 
 [dependency-groups]
 dev = [
@@ -38,60 +18,6 @@ dev = [
     "mypy>=1.10.0,<2",
     "types-PyYAML>=6.0.12,<7",
     "httpx>=0.27.0,<1",
-]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/dla"]
-
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-src = ["src", "tests"]
-
-[tool.ruff.lint]
-select = [
-    "E", "F", "W",
-    "I",
-    "B",
-    "UP",
-    "SIM",
-    "RUF",
-]
-ignore = ["E501"]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B011"]
-
-[tool.mypy]
-python_version = "3.11"
-strict = true
-mypy_path = "src"
-packages = ["dla"]
-namespace_packages = true
-explicit_package_bases = true
-
-[[tool.mypy.overrides]]
-module = ["frontmatter", "pandas", "rapidfuzz", "openpyxl"]
-ignore_missing_imports = true
-
-[tool.pytest.ini_options]
-minversion = "8.0"
-testpaths = ["tests"]
-pythonpath = ["src"]
-markers = [
-    "eval: LLM-as-judge eval tests (slow, model-dependent)",
-    "integration: integration tests requiring external services (Docker)",
-    "ui: Playwright-driven web UI tests",
-]
-filterwarnings = [
-    "error",
-    "ignore::DeprecationWarning:pydantic.*",
-    # Third-party import-time warnings from the web stack (not our code):
-    "ignore::PendingDeprecationWarning:multipart",
-    "ignore::PendingDeprecationWarning:starlette.*",
-    "ignore::DeprecationWarning:starlette.*",
+    "python-semantic-release>=10.4,<11",
+    "pip-licenses>=5,<6",
 ]
