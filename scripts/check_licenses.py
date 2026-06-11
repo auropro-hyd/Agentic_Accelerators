@@ -35,8 +35,10 @@ def find_denylisted(lock_text: str) -> list[str]:
     return sorted(names & DENYLIST)
 
 
-def main() -> int:
-    lock = Path(__file__).resolve().parent.parent / "uv.lock"
+def main(root: Path | None = None) -> int:
+    if root is None:
+        root = Path(__file__).resolve().parent.parent
+    lock = root / "uv.lock"
     hits = find_denylisted(lock.read_text(encoding="utf-8"))
     if hits:
         print("DENYLISTED packages found in uv.lock (see docs/ACCELERATOR-REPO-PLAN.md §5):")
@@ -46,5 +48,5 @@ def main() -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     sys.exit(main())

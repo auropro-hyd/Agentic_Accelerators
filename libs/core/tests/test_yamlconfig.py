@@ -69,3 +69,36 @@ def test_apply_env_overrides_ignores_other_prefixes(
     monkeypatch.setenv("OTHER__INNER__NAME", "nope")
     data: dict = {}
     assert apply_env_overrides(data, prefix="TESTAPP__") == {}
+
+
+def test_apply_env_overrides_skips_empty_path_segments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An env key with an empty segment after splitting on '__' must be skipped entirely.
+
+    e.g. TESTAPP____X  → path after removeprefix+split = ['', 'x']
+    The `any(not p for p in path)` guard on line 32 catches this and continues.
+    """
+    monkeypatch.setenv("TESTAPP____X", "bad")   # double-underscore after prefix → empty segment
+    monkeypatch.setenv("TESTAPP__TRAILING__", "bad2")  # trailing __ → trailing empty segment
+    data: dict[str, object] = {}
+    result = apply_env_overrides(data, prefix="TESTAPP__")
+    # Neither key should have been applied — data stays empty
+    assert result == {}
+
+
+def test_apply_env_overrides_does_not_clobber_non_dict_mid_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When a path segment resolves to a non-dict (e.g. scalar), the loop must break
+    without overwriting the scalar or raising an exception.
+
+    YAML: `inner: 5`  — env tries TESTAPP__INNER__NAME=override
+    The `if not isinstance(cursor, dict): break` on line 38 prevents clobbering.
+    """
+    monkeypatch.setenv("TESTAPP__INNER__NAME", "override")
+    data: dict[str, object] = {"inner": 5}  # 'inner' is a scalar, not a dict
+    result = apply_env_overrides(data, prefix="TESTAPP__")
+    # The scalar must be unchanged; no crash, no new keys under 'inner'
+    assert result["inner"] == 5
+    assert "name" not in result

@@ -56,8 +56,9 @@ def find_unpinned_workspace_deps(pyproject_text: str) -> list[str]:
     )
 
 
-def main() -> int:
-    root = Path(__file__).resolve().parent.parent
+def main(root: Path | None = None) -> int:
+    if root is None:
+        root = Path(__file__).resolve().parent.parent
     failures: list[str] = []
     for pyproject in sorted(
         [*root.glob("libs/*/pyproject.toml"), *root.glob("apps/*/pyproject.toml")]
@@ -72,5 +73,5 @@ def main() -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     sys.exit(main())

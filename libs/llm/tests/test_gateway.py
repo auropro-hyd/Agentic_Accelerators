@@ -162,3 +162,144 @@ def test_litellm_gateway_passes_api_version_to_completion(monkeypatch) -> None:
         LLMRequest(prompt="x", model="ollama/llama3.2", prompt_version="v1")
     )
     assert "api_version" not in captured
+
+
+def test_litellm_gateway_passes_api_base_and_key_to_completion(monkeypatch) -> None:
+    """api_base and api_key reach litellm.completion when set; omitted when None."""
+    from types import SimpleNamespace
+
+    import litellm
+
+    captured: dict = {}
+
+    def _fake_completion(**kwargs):
+        captured.update(kwargs)
+        choice = SimpleNamespace(message=SimpleNamespace(content="ok"), finish_reason="stop")
+        return SimpleNamespace(choices=[choice], usage=None)
+
+    monkeypatch.setattr(litellm, "completion", _fake_completion)
+
+    # With both api_base and api_key set:
+    LiteLLMGateway(api_base="https://proxy.example.com/v1", api_key="sk-test").complete(
+        LLMRequest(prompt="x", model="openai/gpt-4o-mini", prompt_version="v1")
+    )
+    assert captured.get("api_base") == "https://proxy.example.com/v1"
+    assert captured.get("api_key") == "sk-test"
+
+    # Without them — kwargs must not contain those keys.
+    captured.clear()
+    LiteLLMGateway().complete(
+        LLMRequest(prompt="x", model="ollama/llama3.2", prompt_version="v1")
+    )
+    assert "api_base" not in captured
+    assert "api_key" not in captured
+
+
+def test_litellm_gateway_sets_response_format_json_when_requested(monkeypatch) -> None:
+    """response_format='json' on the request maps to {'type': 'json_object'} in the litellm call."""
+    from types import SimpleNamespace
+
+    import litellm
+
+    captured: dict = {}
+
+    def _fake_completion(**kwargs):
+        captured.update(kwargs)
+        choice = SimpleNamespace(message=SimpleNamespace(content='{"a": 1}'), finish_reason="stop")
+        return SimpleNamespace(choices=[choice], usage=None)
+
+    monkeypatch.setattr(litellm, "completion", _fake_completion)
+
+    LiteLLMGateway().complete(
+        LLMRequest(prompt="return json", model="openai/gpt-4o", prompt_version="v1", response_format="json")
+    )
+    assert captured.get("response_format") == {"type": "json_object"}
+
+
+def test_litellm_gateway_raises_on_provider_exception(monkeypatch) -> None:
+    """litellm.completion raising any exception is re-raised as LLMGatewayError."""
+    import litellm
+
+    def _boom(**kwargs):
+        raise RuntimeError("network down")
+
+    monkeypatch.setattr(litellm, "completion", _boom)
+
+    with pytest.raises(LLMGatewayError, match="network down"):
+        LiteLLMGateway().complete(
+            LLMRequest(prompt="x", model="openai/gpt-4o", prompt_version="v1")
+        )
+
+
+def test_litellm_gateway_raises_on_malformed_response_missing_choices(monkeypatch) -> None:
+    """If the response has no choices attribute, a LLMGatewayError is raised."""
+    from types import SimpleNamespace
+
+    import litellm
+
+    def _fake_completion(**kwargs):
+        # Return an object that raises AttributeError on .choices access
+        return SimpleNamespace()  # no .choices attribute
+
+    monkeypatch.setattr(litellm, "completion", _fake_completion)
+
+    with pytest.raises(LLMGatewayError, match="unexpected response shape"):
+        LiteLLMGateway().complete(
+            LLMRequest(prompt="x", model="openai/gpt-4o", prompt_version="v1")
+        )
+
+
+def test_litellm_gateway_raises_on_malformed_response_empty_choices(monkeypatch) -> None:
+    """If the response has an empty choices list, an IndexError becomes LLMGatewayError."""
+    from types import SimpleNamespace
+
+    import litellm
+
+    def _fake_completion(**kwargs):
+        return SimpleNamespace(choices=[])  # empty list → IndexError on [0]
+
+    monkeypatch.setattr(litellm, "completion", _fake_completion)
+
+    with pytest.raises(LLMGatewayError, match="unexpected response shape"):
+        LiteLLMGateway().complete(
+            LLMRequest(prompt="x", model="openai/gpt-4o", prompt_version="v1")
+        )
+
+
+def test_litellm_gateway_usage_none_on_non_numeric_attrs(monkeypatch) -> None:
+    """Non-numeric usage attributes (TypeError/ValueError) result in usage_tokens=None."""
+    from types import SimpleNamespace
+
+    import litellm
+
+    def _fake_completion(**kwargs):
+        # usage with non-numeric token counts triggers TypeError/ValueError in int()
+        usage = SimpleNamespace(prompt_tokens="not-a-number", completion_tokens=None, total_tokens=None)
+        choice = SimpleNamespace(message=SimpleNamespace(content="ok"), finish_reason="stop")
+        return SimpleNamespace(choices=[choice], usage=usage)
+
+    monkeypatch.setattr(litellm, "completion", _fake_completion)
+
+    resp = LiteLLMGateway().complete(
+        LLMRequest(prompt="x", model="openai/gpt-4o", prompt_version="v1")
+    )
+    assert resp.usage_tokens is None
+
+
+def test_litellm_gateway_finish_reason_none_on_attribute_error(monkeypatch) -> None:
+    """AttributeError/IndexError when reading finish_reason results in finish_reason=None."""
+    from types import SimpleNamespace
+
+    import litellm
+
+    def _fake_completion(**kwargs):
+        # choices[0] has no finish_reason attribute → AttributeError
+        choice = SimpleNamespace(message=SimpleNamespace(content="ok"))  # no finish_reason
+        return SimpleNamespace(choices=[choice], usage=None)
+
+    monkeypatch.setattr(litellm, "completion", _fake_completion)
+
+    resp = LiteLLMGateway().complete(
+        LLMRequest(prompt="x", model="openai/gpt-4o", prompt_version="v1")
+    )
+    assert resp.finish_reason is None
