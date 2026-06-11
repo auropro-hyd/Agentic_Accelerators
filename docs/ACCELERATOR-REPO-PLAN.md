@@ -148,6 +148,9 @@ clients above the revenue cap.
 
 ## 8. Migration steps (ordered, each lands green)
 
+> ✅ Steps 1–4 implemented on `feat/workspace-restructure` → [PR #9](https://github.com/auropro-hyd/Agentic_Accelerators/pull/9)
+> (2026-06-11; 134 baseline tests redistributed 124 dla + 10 llm; +11 core, +6 scripts; CI live).
+
 1. **Restructure shell:** root becomes virtual workspace; `git mv` dla into `apps/dla/` (or
    `libs/dla` if Uday prefers it consumable); CI stays green. *(Coordinate with Uday — his repo,
    his M6–M8 roadmap must not be disrupted.)*
@@ -175,3 +178,4 @@ clients above the revenue cap.
 | Date | Change |
 |---|---|
 | 2026-06-11 | Created from 6-dimension research workflow + local seam analysis of dla/BMR. |
+| 2026-06-11 | §8 steps 1–4 implemented (PR #9): uv workspace, auropro-core + auropro-llm extracted, PSR release automation, CI with pin guard + license gate. typer<0.24 constrained (latent dla CliRunner/structlog bug — flagged to Uday). |
