@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from auropro_core.logging import get_logger, log_context
+
 from dla.bundle.provenance import Provenance
 from dla.bundle.schema import (
     ArtifactType,
@@ -35,8 +37,6 @@ from dla.connectors.base import (
 )
 from dla.discovery.relationships import infer_relationships
 from dla.discovery.tagger import tag_declared
-from dla.logging_ctx.config import get_logger
-from dla.logging_ctx.context import log_context
 
 _log = get_logger("dla.discovery")
 

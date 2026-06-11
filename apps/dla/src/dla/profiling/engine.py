@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
 
+from auropro_core.logging import get_logger, log_context
+
 from dla.bundle.provenance import Provenance
 from dla.bundle.reader import iter_artifacts
 from dla.bundle.schema import (
@@ -20,8 +22,6 @@ from dla.bundle.schema import (
 from dla.bundle.writer import now_utc, write_artifact
 from dla.config.models import Config
 from dla.connectors.base import SourceConnector
-from dla.logging_ctx.config import get_logger
-from dla.logging_ctx.context import log_context
 from dla.profiling.samplers import FullScanSampler, Sampler, SamplingSampler
 from dla.profiling.statistics import compute_stats
 

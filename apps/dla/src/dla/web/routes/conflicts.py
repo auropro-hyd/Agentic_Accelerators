@@ -16,10 +16,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
+from auropro_core.logging import get_logger
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from dla.logging_ctx.config import get_logger
 from dla.reconciliation.resolve import resolve_result
 from dla.web.deps import ViewDep, render
 

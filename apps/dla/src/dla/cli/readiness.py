@@ -6,13 +6,13 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from auropro_core.logging import configure_logging
 
 from dla.bundle.schema import Severity
 from dla.config.loader import ConfigError, load_config
 from dla.connectors.base import ConnectionError as ConnectorConnectionError
 from dla.connectors.csv_folder import build as build_csv_folder
 from dla.connectors.postgres import build as build_postgres
-from dla.logging_ctx.config import configure_logging
 from dla.readiness.report import assemble
 
 app = typer.Typer(help="Compile data-quality readiness issues from the bundle.")

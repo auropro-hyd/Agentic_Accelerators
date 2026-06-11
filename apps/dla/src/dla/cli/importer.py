@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from auropro_core.logging import configure_logging, get_logger
 
 from dla.config.loader import ConfigError, load_config
 from dla.importers import ImportReport, RawImport
@@ -30,7 +31,6 @@ from dla.importers.csv_dictionary import import_dictionary
 from dla.importers.dbt_manifest import import_manifest
 from dla.importers.markdown_notes import import_notes
 from dla.importers.normalize import normalize_and_write
-from dla.logging_ctx.config import configure_logging, get_logger
 
 app = typer.Typer(help="Import client documentation (dictionary / notes / dbt manifest).")
 _log = get_logger("dla.cli.import")

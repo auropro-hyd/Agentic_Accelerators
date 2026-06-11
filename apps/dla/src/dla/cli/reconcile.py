@@ -18,9 +18,9 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from auropro_core.logging import configure_logging, get_logger
 
 from dla.config.loader import ConfigError, load_config
-from dla.logging_ctx.config import configure_logging, get_logger
 from dla.reconciliation import reconcile
 from dla.reconciliation.resolve import resolve_result
 

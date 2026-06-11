@@ -7,10 +7,10 @@ edit service / provenance machine as single edits.
 
 from __future__ import annotations
 
+from auropro_core.logging import get_logger
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from dla.logging_ctx.config import get_logger
 from dla.web import edits
 from dla.web.deps import ViewDep, render
 from dla.web.views import BundleView

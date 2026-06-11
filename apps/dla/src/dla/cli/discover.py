@@ -6,13 +6,13 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from auropro_core.logging import configure_logging, get_logger
 
 from dla.config.loader import ConfigError, load_config
 from dla.connectors.base import ConnectionError as ConnectorConnectionError
 from dla.connectors.csv_folder import build as build_csv_folder
 from dla.connectors.postgres import build as build_postgres
 from dla.discovery.engine import discover
-from dla.logging_ctx.config import configure_logging, get_logger
 
 app = typer.Typer(help="Discover schema and produce a bundle.")
 _log = get_logger("dla.cli.discover")

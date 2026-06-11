@@ -11,12 +11,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
+from auropro_core.logging import get_logger
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from dla.bundle.provenance import DisallowedProvenanceTransition
 from dla.describe.engine import load_existing_description
-from dla.logging_ctx.config import get_logger
 from dla.web import edits
 from dla.web.deps import ViewDep, render
 
