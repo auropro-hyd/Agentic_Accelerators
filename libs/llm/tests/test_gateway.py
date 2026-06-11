@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from dla.config.models import LLMConfig
-from dla.llm.gateway import (
+from auropro_llm.config import LLMConfig
+from auropro_llm.gateway import (
     DryRunCalled,
     LiteLLMGateway,
     LLMGatewayError,

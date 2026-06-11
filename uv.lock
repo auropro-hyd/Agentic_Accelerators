@@ -10,6 +10,7 @@ resolution-markers = [
 members = [
     "auropro-accelerators",
     "auropro-core",
+    "auropro-llm",
     "dla",
 ]
 constraints = [{ name = "typer", specifier = "<0.24" }]
@@ -174,6 +175,21 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.7.0,<3" },
     { name = "pyyaml", specifier = ">=6.0.1,<7" },
     { name = "structlog", specifier = ">=24.1.0,<25" },
+]
+
+[[package]]
+name = "auropro-llm"
+version = "0.1.0"
+source = { editable = "libs/llm" }
+dependencies = [
+    { name = "litellm" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "litellm", specifier = ">=1.40.0,<2" },
+    { name = "pydantic", specifier = ">=2.7.0,<3" },
 ]
 
 [[package]]
