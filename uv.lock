@@ -13,6 +13,7 @@ members = [
     "auropro-llm",
     "dla",
 ]
+constraints = [{ name = "starlette", specifier = ">=0.47.2,<1" }]
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -156,8 +157,8 @@ dev = [
     { name = "hypothesis", specifier = ">=6.100,<7" },
     { name = "mypy", specifier = ">=1.10.0,<2" },
     { name = "pip-licenses", specifier = ">=5,<6" },
-    { name = "pytest", specifier = ">=8.2.0,<9" },
-    { name = "pytest-cov", specifier = ">=5,<8" },
+    { name = "pytest", specifier = ">=8.2.0,<10" },
+    { name = "pytest-cov", specifier = ">=5,<9" },
     { name = "python-semantic-release", specifier = ">=10.4,<11" },
     { name = "ruff", specifier = ">=0.4.0,<1" },
     { name = "types-pyyaml", specifier = ">=6.0.12,<7" },
@@ -198,7 +199,7 @@ testing = [
 requires-dist = [
     { name = "litellm", specifier = ">=1.40.0,<2" },
     { name = "pydantic", specifier = ">=2.7.0,<3" },
-    { name = "pytest", marker = "extra == 'testing'", specifier = ">=8.2.0,<9" },
+    { name = "pytest", marker = "extra == 'testing'", specifier = ">=8.2.0,<10" },
 ]
 provides-extras = ["testing"]
 
@@ -386,7 +387,7 @@ dev = [
 requires-dist = [
     { name = "auropro-core", editable = "libs/core" },
     { name = "auropro-llm", editable = "libs/llm" },
-    { name = "fastapi", specifier = ">=0.111.0,<0.115" },
+    { name = "fastapi", specifier = ">=0.116,<1" },
     { name = "jinja2", specifier = ">=3.1.4,<4" },
     { name = "openpyxl", specifier = ">=3.1,<4" },
     { name = "pandas", specifier = ">=2.2.2,<3" },
@@ -406,7 +407,7 @@ requires-dist = [
 dev = [
     { name = "httpx", specifier = ">=0.27.0,<1" },
     { name = "mypy", specifier = ">=1.10.0,<2" },
-    { name = "pytest", specifier = ">=8.2.0,<9" },
+    { name = "pytest", specifier = ">=8.2.0,<10" },
     { name = "ruff", specifier = ">=0.4.0,<1" },
     { name = "types-pyyaml", specifier = ">=6.0.12,<7" },
 ]
@@ -431,16 +432,18 @@ wheels = [
 
 [[package]]
 name = "fastapi"
-version = "0.114.2"
+version = "0.136.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "annotated-doc" },
     { name = "pydantic" },
     { name = "starlette" },
     { name = "typing-extensions" },
+    { name = "typing-inspection" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d6/c7/cf41c991257e9babc429ae0c2c48f5315154e8b94c8ba475dc0247718741/fastapi-0.114.2.tar.gz", hash = "sha256:0adb148b62edb09e8c6eeefa3ea934e8f276dabc038c5a82989ea6346050c3da", size = 295481, upload-time = "2024-09-13T20:49:05.32Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/81/2d/ff8d91d7b564d464629a0fd50a4489c97fcb836ac230bf3a7269232a9b1f/fastapi-0.136.3.tar.gz", hash = "sha256:e487fae93ad408e6f47641ee4dfe389864fd7bec92e547ea8498fc13f43e83ab", size = 396410, upload-time = "2026-05-23T18:53:15.192Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/2b/15ac29e524bf0dc8fcf8e90364c05709b3d4fa810a86421c6924ea18cccd/fastapi-0.114.2-py3-none-any.whl", hash = "sha256:44474a22913057b1acb973ab90f4b671ba5200482e7622816d79105dcece1ac5", size = 94049, upload-time = "2024-09-13T20:49:03.85Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/82/45359b62a067409bd929ae8a56b8ed13e5a8c8a61194b3c236920999ab83/fastapi-0.136.3-py3-none-any.whl", hash = "sha256:3d2a69bdf04b7e9f3afa292c3bc7a98816bbfafa10bc9b45f3f3700d2f761620", size = 117481, upload-time = "2026-05-23T18:53:16.924Z" },
 ]
 
 [[package]]
@@ -1299,7 +1302,7 @@ wheels = [
 
 [[package]]
 name = "pytest"
-version = "8.4.2"
+version = "9.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
@@ -1308,9 +1311,9 @@ dependencies = [
     { name = "pluggy" },
     { name = "pygments" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a3/5c/00a0e072241553e1a7496d638deababa67c5058571567b92a7eaa258397c/pytest-8.4.2.tar.gz", hash = "sha256:86c0d0b93306b961d58d62a4db4879f27fe25513d4b969df351abdddb3c30e01", size = 1519618, upload-time = "2025-09-04T14:34:22.711Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/0d/549bd94f1a0a402dc8cf64563a117c0f3765662e2e668477624baeec44d5/pytest-9.0.3.tar.gz", hash = "sha256:b86ada508af81d19edeb213c681b1d48246c1a91d304c6c81a427674c17eb91c", size = 1572165, upload-time = "2026-04-07T17:16:18.027Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl", hash = "sha256:872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79", size = 365750, upload-time = "2025-09-04T14:34:20.226Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/24/a372aaf5c9b7208e7112038812994107bc65a84cd00e0354a88c2c77a617/pytest-9.0.3-py3-none-any.whl", hash = "sha256:2c5efc453d45394fdd706ade797c0a81091eccd1d6e4bccfcd476e2b8e0ab5d9", size = 375249, upload-time = "2026-04-07T17:16:16.13Z" },
 ]
 
 [[package]]
@@ -1720,14 +1723,15 @@ wheels = [
 
 [[package]]
 name = "starlette"
-version = "0.38.6"
+version = "0.52.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
+    { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/42/b4/e25c3b688ef703d85e55017c6edd0cbf38e5770ab748234363d54ff0251a/starlette-0.38.6.tar.gz", hash = "sha256:863a1588f5574e70a821dadefb41e4881ea451a47a3cd1b4df359d4ffefe5ead", size = 2569491, upload-time = "2024-09-22T17:01:45.422Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c4/68/79977123bb7be889ad680d79a40f339082c1978b5cfcf62c2d8d196873ac/starlette-0.52.1.tar.gz", hash = "sha256:834edd1b0a23167694292e94f597773bc3f89f362be6effee198165a35d62933", size = 2653702, upload-time = "2026-01-18T13:34:11.062Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b7/9c/93f7bc03ff03199074e81974cc148908ead60dcf189f68ba1761a0ee35cf/starlette-0.38.6-py3-none-any.whl", hash = "sha256:4517a1409e2e73ee4951214ba012052b9e16f60e90d73cfb06192c19203bbb05", size = 71451, upload-time = "2024-09-22T17:01:43.076Z" },
+    { url = "https://files.pythonhosted.org/packages/81/0d/13d1d239a25cbfb19e740db83143e95c772a1fe10202dda4b76792b114dd/starlette-0.52.1-py3-none-any.whl", hash = "sha256:0029d43eb3d273bc4f83a08720b4912ea4b071087a3b48db01b7c839f7954d74", size = 74272, upload-time = "2026-01-18T13:34:09.188Z" },
 ]
 
 [[package]]

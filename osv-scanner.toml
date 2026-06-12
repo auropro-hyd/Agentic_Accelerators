@@ -5,3 +5,11 @@
 # [[IgnoredVulns]]
 # id = "GHSA-xxxx-xxxx-xxxx"
 # reason = "not exploitable here because ...; remove by 2026-09-01"
+
+[[IgnoredVulns]]
+id = "GHSA-86qp-5c8j-p5mr"
+reason = "Fix ships only in starlette 1.x, which migrates TestClient to httpx2 — a deliberate major migration for dla's web stack, not a drop-in. Medium (6.5). Owner: Anmol. Review by 2026-09-12 or at dla's starlette 1.x move, whichever first."
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-161"
+reason = "Alias of GHSA-86qp-5c8j-p5mr (same starlette finding) — same rationale and review-by."

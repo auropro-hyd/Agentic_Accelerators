@@ -7,14 +7,18 @@ classifiers = ["Private :: Do Not Upload"]
 
 [tool.uv]
 package = false
+# starlette<1: 1.x switches TestClient to httpx2 and deprecates httpx — a major
+# migration for dla's web tests. 0.47.2+ carries the 2026 CVE fixes we need.
+# Review when dla plans its starlette 1.x move.
+constraint-dependencies = ["starlette>=0.47.2,<1"]
 
 [tool.uv.workspace]
 members = ["libs/*", "apps/*"]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.2.0,<9",
-    "pytest-cov>=5,<8",
+    "pytest>=8.2.0,<10",  # 9.x fixes GHSA-6w46-j5rx-g56g
+    "pytest-cov>=5,<9",
     "ruff>=0.4.0,<1",
     "mypy>=1.10.0,<2",
     "types-PyYAML>=6.0.12,<7",

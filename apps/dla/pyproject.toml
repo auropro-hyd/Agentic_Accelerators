@@ -19,7 +19,7 @@ dependencies = [
     "typer>=0.12.3,<1",
     "python-frontmatter>=1.1.0,<2",
     "jinja2>=3.1.4,<4",
-    "fastapi>=0.111.0,<0.115",
+    "fastapi>=0.116,<1",  # floor pulls starlette>=0.47.2 (CVE fixes); <1 avoids starlette 1.x/httpx2 migration
     "uvicorn>=0.30.0,<1",
     "python-multipart>=0.0.9,<1",
     "openpyxl>=3.1,<4",
@@ -33,7 +33,7 @@ dla = "dla.cli.main:app"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.2.0,<9",
+    "pytest>=8.2.0,<10",
     "ruff>=0.4.0,<1",
     "mypy>=1.10.0,<2",
     "types-PyYAML>=6.0.12,<7",
