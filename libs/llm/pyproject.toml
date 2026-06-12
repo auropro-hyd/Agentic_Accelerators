@@ -12,6 +12,9 @@ dependencies = [
     "litellm>=1.40.0,<2",
 ]
 
+[project.optional-dependencies]
+testing = ["pytest>=8.2.0,<9"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
