@@ -1,0 +1,48 @@
+name: nightly-fresh-resolve
+# This job upgrades the lock in-memory and runs all gates against the upgraded deps.
+# The upgraded lock is NEVER committed — this is a smoke alarm, not an updater.
+# If this job fails it means a transitive dep upgrade would break us: act before pinning forces us.
+
+on:
+  schedule:
+    - cron: "30 1 * * *"   # 01:30 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-fresh-resolve
+  cancel-in-progress: true
+
+jobs:
+  fresh-resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          python-version: "3.11"
+      - name: Upgrade lock (uncommitted)
+        run: uv lock --upgrade
+      - name: Show drift
+        run: git diff --stat uv.lock
+      - name: Sync upgraded
+        run: uv sync --all-packages
+      - name: Full gates on upgraded deps
+        run: |
+          uv run ruff check .
+          (cd libs/core && uv run pytest -q)
+          (cd libs/llm && uv run pytest -q)
+          (cd apps/dla && uv run pytest tests/unit -q)
+          uv run pytest scripts/tests -q
+          uv run python scripts/check_workspace_pins.py
+          uv run python scripts/check_licenses.py
+          uv run python libs/core/samples/quickstart.py
+          uv run python libs/llm/samples/quickstart.py
+      - name: OSV scan upgraded lock
+        uses: google/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --config=osv-scanner.toml
+            --lockfile=uv.lock
