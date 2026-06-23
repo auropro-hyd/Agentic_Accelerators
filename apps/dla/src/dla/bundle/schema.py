@@ -304,6 +304,46 @@ class PatternPayload(CommonFields):
     explanation: str | None = None
 
 
+# --- M7 entities (KPI workbook + term mapping) ---
+
+
+class FormulaKind(StrEnum):
+    SQL = "sql"
+    HUMAN = "human"
+
+
+class PatternKind(StrEnum):
+    GLOB = "glob"
+    REGEX = "regex"
+    EXACT = "exact"
+
+
+class KpiPayload(CommonFields):
+    """One KPI defined in the workbook (§E8). SME-authored in v1."""
+
+    artifact_type: Literal[ArtifactType.KPI] = ArtifactType.KPI
+    name: str
+    business_definition: str
+    formula: str
+    formula_kind: FormulaKind
+    grain: str
+    dimensions: list[str] = Field(default_factory=list)
+    source_table_refs: list[str] = Field(default_factory=list)
+    owner: str
+    re_confirmation_required: bool = False
+
+
+class TermMappingRulePayload(CommonFields):
+    """SME-defined term-mapping rule, evaluated before fuzzy matching (§E11)."""
+
+    artifact_type: Literal[ArtifactType.TERM_MAPPING_RULE] = ArtifactType.TERM_MAPPING_RULE
+    pattern: str
+    pattern_kind: PatternKind
+    target_glossary_term: str
+    scope: dict[str, Any] = Field(default_factory=dict)
+    precedence: int = 0
+
+
 # --- Bundle manifest (top-level) ---
 
 

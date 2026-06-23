@@ -16,6 +16,7 @@ from dla.bundle.schema import (
     GlossaryEntryPayload,
     ImportedArtifactPayload,
     IndexPayload,
+    KpiPayload,
     PatternPayload,
     ProfilePayload,
     ReadinessIssuePayload,
@@ -23,6 +24,7 @@ from dla.bundle.schema import (
     RelationshipPayload,
     SourcePayload,
     TablePayload,
+    TermMappingRulePayload,
 )
 
 _MODEL_FOR_TYPE: dict[ArtifactType, type[CommonFields]] = {
@@ -38,6 +40,8 @@ _MODEL_FOR_TYPE: dict[ArtifactType, type[CommonFields]] = {
     ArtifactType.RECONCILIATION_RESULT: ReconciliationResultPayload,
     ArtifactType.GLOSSARY_ENTRY: GlossaryEntryPayload,
     ArtifactType.PATTERN: PatternPayload,
+    ArtifactType.KPI: KpiPayload,
+    ArtifactType.TERM_MAPPING_RULE: TermMappingRulePayload,
 }
 
 
