@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Coverage — DLA{% endblock %}
+{% block content %}
+<h1>Review coverage</h1>
+<p class="meta">Confirmed (SME-reviewed) vs total, per reviewable artifact type.</p>
+{% if not stats %}
+  <p class="empty">No reviewable artifacts yet.</p>
+{% else %}
+<table class="grid">
+  <thead><tr><th>Artifact type</th><th>Confirmed</th><th>Total</th><th>Coverage</th></tr></thead>
+  <tbody>
+    {% for s in stats %}
+    <tr>
+      <td>{{ s.artifact_type }}</td>
+      <td>{{ s.confirmed }}</td>
+      <td>{{ s.total }}</td>
+      <td>
+        <span class="bar"><span class="bar-fill" style="width: {{ s.pct_display }}%"></span></span>
+        {{ s.pct_display }}%
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

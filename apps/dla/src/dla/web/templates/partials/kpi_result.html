@@ -1,0 +1,5 @@
+{% if error %}
+<p class="banner error">{{ error }}</p>
+{% elif kpi %}
+<p class="banner ok">KPI "{{ kpi.name }}" saved ({{ kpi.source_table_refs | length }} source table(s)). <a href="/kpi">refresh list</a></p>
+{% endif %}

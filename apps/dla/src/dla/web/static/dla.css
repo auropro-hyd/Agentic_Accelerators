@@ -72,3 +72,7 @@ tr.attn td { background: #fffbeb; }
 .sidebyside { display: flex; gap: 1rem; flex-wrap: wrap; }
 .sidebyside .side { flex: 1 1 320px; margin-top: 1rem; }
 .foot { max-width: 960px; margin: 2rem auto; padding: 1rem 1.25rem; color: var(--muted); font-size: .82rem; border-top: 1px solid var(--line); }
+
+.bar { display: inline-block; width: 160px; height: 10px; background: #eef2f7; border-radius: 5px; vertical-align: middle; overflow: hidden; }
+.bar-fill { display: block; height: 100%; background: var(--ok); }
+.edit-form input, .edit-form select { width: 100%; max-width: 520px; font: inherit; padding: .4rem .5rem; border: 1px solid var(--line); border-radius: 6px; margin-bottom: .2rem; }
