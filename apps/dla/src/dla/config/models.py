@@ -102,6 +102,16 @@ class ThresholdsConfig(BaseModel):
     constant_column_severity_info: bool = True
     """When True, constant columns are flagged as `info`; when False, `warning`."""
 
+    # Glossary (M6) thresholds.
+    glossary_min_recurrence: int = 3
+    """A name token must appear in at least this many tables/columns to propose a term."""
+    glossary_stop_tokens: list[str] = Field(
+        default_factory=lambda: [
+            "id", "at", "on", "of", "the", "to", "by", "is", "no", "in", "ref", "fk", "pk",
+        ]
+    )
+    """Noise tokens skipped by the glossary extractor (plus single chars and pure digits)."""
+
 
 class LLMConfig(_BaseLLMConfig):
     """dla's LLM settings — same as auropro-llm's, with dla's historical env-var default."""

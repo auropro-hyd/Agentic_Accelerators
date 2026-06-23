@@ -273,6 +273,37 @@ class ReconciliationResultPayload(CommonFields):
     sme_decision: dict[str, Any] | None = None
 
 
+# --- M6 entities (glossary + pattern catalog) ---
+
+
+class PatternType(StrEnum):
+    STAR_SCHEMA = "star_schema"
+    SNOWFLAKE_SCHEMA = "snowflake_schema"
+    JUNCTION_TABLE = "junction_table"
+    AUDIT_COLUMNS = "audit_columns"
+    SLOWLY_CHANGING_DIMENSION = "slowly_changing_dimension"
+
+
+class GlossaryEntryPayload(CommonFields):
+    """One recurring term/abbreviation with a proposed definition (§E6)."""
+
+    artifact_type: Literal[ArtifactType.GLOSSARY_ENTRY] = ArtifactType.GLOSSARY_ENTRY
+    term: str
+    definition: str
+    usages: list[str] = Field(default_factory=list)
+    recurrence_count: int = Field(ge=0)
+    aliases: list[str] = Field(default_factory=list)
+
+
+class PatternPayload(CommonFields):
+    """One detected schema pattern (§E7)."""
+
+    artifact_type: Literal[ArtifactType.PATTERN] = ArtifactType.PATTERN
+    pattern_type: PatternType
+    participants: dict[str, Any] = Field(default_factory=dict)
+    explanation: str | None = None
+
+
 # --- Bundle manifest (top-level) ---
 
 

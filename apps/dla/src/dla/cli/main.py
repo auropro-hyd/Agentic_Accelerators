@@ -68,7 +68,9 @@ def version() -> None:
 # discoverable via `dla --help` from the moment T020 lands.
 from dla.cli import describe as _describe  # noqa: E402
 from dla.cli import discover as _discover  # noqa: E402
+from dla.cli import glossary as _glossary  # noqa: E402
 from dla.cli import importer as _importer  # noqa: E402
+from dla.cli import patterns as _patterns  # noqa: E402
 from dla.cli import profile as _profile  # noqa: E402
 from dla.cli import readiness as _readiness  # noqa: E402
 from dla.cli import reconcile as _reconcile  # noqa: E402
@@ -81,3 +83,5 @@ app.add_typer(_describe.app, name="describe")
 app.add_typer(_ui.app, name="ui")
 app.add_typer(_importer.app, name="import")
 app.add_typer(_reconcile.app, name="reconcile")
+app.add_typer(_glossary.app, name="glossary")
+app.add_typer(_patterns.app, name="patterns")

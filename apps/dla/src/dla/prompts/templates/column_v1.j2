@@ -65,6 +65,15 @@ RELATIONSHIPS INVOLVING THIS COLUMN
 {% endfor %}
 {% endif %}
 
+{% if glossary is defined and glossary %}
+============================================================
+CONFIRMED GLOSSARY TERMS (SME-reviewed; treat as authoritative)
+============================================================
+{% for g in glossary %}
+- {{ g.term }}: {{ g.definition }}
+{% endfor %}
+{% endif %}
+
 ============================================================
 INSTRUCTIONS
 ============================================================

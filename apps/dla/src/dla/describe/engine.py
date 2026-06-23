@@ -58,6 +58,7 @@ from dla.bundle.schema import (
     TablePayload,
 )
 from dla.bundle.writer import WriteResult, write_artifact, write_manifest
+from dla.glossary.feedback_loop import confirmed_glossary_for_name
 from dla.prompts.registry import render
 
 
@@ -260,6 +261,8 @@ def build_column_context(bundle_root: Path, column_ref: str) -> dict[str, Any]:
         "column": _column_to_context(column),
         "profile": _profile_to_context(profile),
         "relationships": [_relationship_to_context(r) for r in related],
+        # M6 feedback loop: confirmed glossary terms for words in the column name.
+        "glossary": confirmed_glossary_for_name(bundle_root, column.name),
     }
 
 
