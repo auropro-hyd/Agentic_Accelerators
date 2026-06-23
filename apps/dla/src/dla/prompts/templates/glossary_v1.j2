@@ -1,0 +1,25 @@
+You are documenting a data warehouse's business glossary. Define one term,
+using only the evidence below — the places the term appears in the schema.
+
+TERM
+  "{{ term }}"
+
+WHERE IT APPEARS ({{ usage_count }} place{{ "s" if usage_count != 1 else "" }})
+{% for u in usages %}  - {{ u }}
+{% endfor %}
+
+INSTRUCTIONS
+1. Give a single plain-language sentence defining what "{{ term }}" most
+   likely means in this schema, based only on where it appears.
+2. If the usages are too varied or uninformative to define it confidently,
+   return the exact string INSUFFICIENT_SIGNAL as the definition.
+3. Do not invent domain facts the names do not support.
+
+Return ONLY a JSON object with this exact shape:
+
+```json
+{
+  "description": "<one-sentence definition, or INSUFFICIENT_SIGNAL>",
+  "confidence": "Strong | Moderate | Weak"
+}
+```
