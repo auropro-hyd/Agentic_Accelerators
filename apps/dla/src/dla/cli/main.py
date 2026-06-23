@@ -66,6 +66,7 @@ def version() -> None:
 
 # Subcommands register on import; importing here keeps the top-level CLI
 # discoverable via `dla --help` from the moment T020 lands.
+from dla.cli import coverage as _coverage  # noqa: E402
 from dla.cli import describe as _describe  # noqa: E402
 from dla.cli import discover as _discover  # noqa: E402
 from dla.cli import glossary as _glossary  # noqa: E402
@@ -87,3 +88,4 @@ app.add_typer(_reconcile.app, name="reconcile")
 app.add_typer(_glossary.app, name="glossary")
 app.add_typer(_patterns.app, name="patterns")
 app.add_typer(_kpi.app, name="kpi")
+app.add_typer(_coverage.app, name="coverage")
