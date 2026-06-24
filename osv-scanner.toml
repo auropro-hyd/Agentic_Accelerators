@@ -13,3 +13,23 @@ reason = "Fix ships only in starlette 1.x, which migrates TestClient to httpx2 �
 [[IgnoredVulns]]
 id = "PYSEC-2026-161"
 reason = "Alias of GHSA-86qp-5c8j-p5mr (same starlette finding) — same rationale and review-by."
+
+# Same root cause as GHSA-86qp above: surfaced once the osv-scanner-action pin
+# was corrected (the scan had never actually run). All four are fixed ONLY in
+# starlette 1.x (TestClient -> httpx2), the deferred major migration. Same owner
+# and review-by; lift these the moment dla moves to starlette 1.x.
+[[IgnoredVulns]]
+id = "GHSA-82w8-qh3p-5jfq"
+reason = "starlette High (7.5). Fix only in starlette 1.x (>=1.3.1) — deferred major migration (TestClient -> httpx2). Owner: Anmol. Review by 2026-09-12 or at dla's starlette 1.x move, whichever first."
+
+[[IgnoredVulns]]
+id = "GHSA-wqp7-x3pw-xc5r"
+reason = "starlette High (7.5). Fix only in starlette 1.x (>=1.1.0) — deferred major migration (TestClient -> httpx2). Owner: Anmol. Review by 2026-09-12 or at dla's starlette 1.x move, whichever first."
+
+[[IgnoredVulns]]
+id = "GHSA-x746-7m8f-x49c"
+reason = "starlette Medium (5.3). Fix only in starlette 1.x (>=1.1.0) — deferred major migration (TestClient -> httpx2). Owner: Anmol. Review by 2026-09-12 or at dla's starlette 1.x move, whichever first."
+
+[[IgnoredVulns]]
+id = "GHSA-jp82-jpqv-5vv3"
+reason = "starlette Low (3.7). Fix only in starlette 1.x (>=1.3.0) — deferred major migration (TestClient -> httpx2). Owner: Anmol. Review by 2026-09-12 or at dla's starlette 1.x move, whichever first."
