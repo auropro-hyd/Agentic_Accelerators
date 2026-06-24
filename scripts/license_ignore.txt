@@ -10,3 +10,4 @@ certifi  # Mozilla Public License 2.0 (MPL 2.0) — transitive via requests; MPL
 pathspec  # Mozilla Public License 2.0 (MPL 2.0) — transitive via hatchling/pip-licenses (build/dev tooling); not shipped in deliverables
 tiktoken  # MIT License — packages metadata includes full license text instead of classifier string; genuinely MIT (OpenAI, Shantanu Jain)
 hypothesis  # Mozilla Public License 2.0 (MPL 2.0) — dev/test dependency (property-based tests); file-level copyleft, not shipped in deliverables
+greenlet  # "MIT AND PSF-2.0" — both halves are permissive and individually allow-listed; pip-licenses reports the compound string. Transitive via sqlalchemy.
