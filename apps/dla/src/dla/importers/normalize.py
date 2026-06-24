@@ -11,10 +11,22 @@ import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 
-from dla.bundle.provenance import Provenance
-from dla.bundle.schema import CreatedBy, ImportedArtifactPayload
+from dla.bundle.provenance import DisallowedProvenanceTransition, Provenance
+from dla.bundle.reader import iter_artifacts, load_manifest
+from dla.bundle.schema import (
+    ArtifactType,
+    CommonFields,
+    CreatedBy,
+    DescriptionPayload,
+    GlossaryEntryPayload,
+    ImportedArtifactPayload,
+    KpiPayload,
+)
 from dla.bundle.writer import write_artifact
 from dla.importers import ImportReport, RawImport
+
+# Reviewable knowledge inherited from a prior engagement's bundle (T155).
+_PRIOR_TYPES = (ArtifactType.DESCRIPTION, ArtifactType.GLOSSARY_ENTRY, ArtifactType.KPI)
 
 
 def _now() -> datetime:
@@ -59,4 +71,55 @@ def normalize_and_write(
         report.written += 1
         fmt = str(raw.source_format)
         report.by_format[fmt] = report.by_format.get(fmt, 0) + 1
+    return report
+
+
+def _prior_body(artifact: CommonFields) -> str:
+    if isinstance(artifact, DescriptionPayload):
+        return artifact.text
+    if isinstance(artifact, GlossaryEntryPayload):
+        return artifact.definition
+    if isinstance(artifact, KpiPayload):
+        return artifact.business_definition
+    return ""
+
+
+def import_prior_bundle(
+    *,
+    bundle_root: Path,
+    prior_root: Path,
+    report: ImportReport | None = None,
+) -> ImportReport:
+    """Inherit a prior engagement's reviewable artifacts into this bundle (T155).
+
+    Descriptions, glossary entries, and KPIs are copied with `imported_from`
+    set to the prior source and their original `provenance` preserved. The
+    atomic writer's provenance state machine protects any newer SME work in
+    this bundle — a prior artifact that would clobber it is skipped, so the
+    inheritance is safe to re-run.
+    """
+    report = report or ImportReport()
+    now = _now()
+    manifest = load_manifest(prior_root)
+    prior_id = manifest.source_id if manifest is not None else str(prior_root)
+
+    for artifact_type in _PRIOR_TYPES:
+        for artifact in iter_artifacts(prior_root, artifact_type):
+            inherited = artifact.model_copy(
+                update={"imported_from": prior_id, "updated_at": now}
+            )
+            md_exclude = {"text"} if isinstance(inherited, DescriptionPayload) else None
+            try:
+                result = write_artifact(
+                    bundle_root, inherited, body=_prior_body(inherited), md_exclude_keys=md_exclude
+                )
+            except DisallowedProvenanceTransition:
+                report.skipped += 1  # newer SME work in this bundle wins — preserved
+                continue
+            if result.skipped_to_preserve_sme:
+                report.skipped += 1
+                continue
+            report.written += 1
+            key = str(artifact_type)
+            report.by_format[key] = report.by_format.get(key, 0) + 1
     return report

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Term rules — DLA{% endblock %}
+{% block content %}
+<h1>Term-mapping rules</h1>
+<p class="meta">
+  Map a column/table name pattern to a glossary term. Rules are consulted
+  <strong>before</strong> fuzzy matching; higher precedence wins.
+</p>
+<div id="rules">{% include "partials/term_mappings_list.html" %}</div>
+
+<h3>Add a rule</h3>
+<form class="edit-form" hx-post="/term-mappings" hx-target="#rules" hx-swap="innerHTML">
+  <label>Pattern</label>
+  <input name="pattern" required placeholder="*_dt">
+  <label>Kind</label>
+  <select name="pattern_kind"><option>glob</option><option>exact</option><option>regex</option></select>
+  <label>Target glossary term</label>
+  <input name="target_glossary_term" required placeholder="order_date">
+  <label>Precedence</label>
+  <input name="precedence" type="number" value="0">
+  <div class="actions"><button type="submit" class="btn">Add rule</button></div>
+</form>
+{% endblock %}

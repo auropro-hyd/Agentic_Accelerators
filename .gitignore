@@ -41,3 +41,7 @@ build/
 *.log
 *.tmp
 .cache
+
+# macOS file-restore duplicates (e.g. "config 2.py") — never commit these
+* 2.*
+* 2

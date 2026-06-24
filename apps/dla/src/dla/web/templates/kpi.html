@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}KPIs — DLA{% endblock %}
+{% block content %}
+<h1>KPI workbook</h1>
+{% if kpis %}
+<table class="grid">
+  <thead><tr><th>KPI</th><th>Grain</th><th>Owner</th><th>Source tables</th></tr></thead>
+  <tbody>
+    {% for k in kpis %}
+    <tr>
+      <td><a href="/kpi/{{ k.artifact_id.split(':', 1)[1] }}">{{ k.name }}</a></td>
+      <td>{{ k.grain }}</td>
+      <td>{{ k.owner }}</td>
+      <td>{% for r in k.source_table_refs %}<code>{{ r }}</code> {% endfor %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="empty">No KPIs defined yet.</p>{% endif %}
+
+<h3>Add a KPI</h3>
+<div id="kpi-result"></div>
+<form class="edit-form" hx-post="/kpi" hx-target="#kpi-result" hx-swap="innerHTML">
+  <label>Name</label>
+  <input name="name" required placeholder="monthly_active_customers">
+  <label>Business definition</label>
+  <textarea name="definition" rows="2" required></textarea>
+  <label>Formula</label>
+  <textarea name="formula" rows="2" required></textarea>
+  <label>Formula kind</label>
+  <select name="formula_kind"><option value="sql">sql</option><option value="human">human</option></select>
+  <label>Grain</label>
+  <input name="grain" required placeholder="one row per month">
+  <label>Owner</label>
+  <input name="owner" required>
+  <label>Source tables (comma-separated)</label>
+  <input name="source_tables" required placeholder="public.orders,public.customers">
+  <label>Dimensions (comma-separated, optional)</label>
+  <input name="dimensions">
+  <div class="actions"><button type="submit" class="btn">Save KPI</button></div>
+</form>
+<p class="meta">Available tables: {% for t in tables %}<code>{{ t.split(':', 1)[1] }}</code> {% endfor %}</p>
+{% endblock %}

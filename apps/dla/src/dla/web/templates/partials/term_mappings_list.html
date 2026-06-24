@@ -1,0 +1,20 @@
+{% if error %}<p class="banner error">{{ error }}</p>{% endif %}
+{% if rules %}
+<table class="grid">
+  <thead><tr><th>Pattern</th><th>Kind</th><th>→ Term</th><th>Precedence</th><th></th></tr></thead>
+  <tbody>
+    {% for r in rules %}
+    <tr>
+      <td><code>{{ r.pattern }}</code></td>
+      <td>{{ r.pattern_kind }}</td>
+      <td>{{ r.target_glossary_term }}</td>
+      <td>{{ r.precedence }}</td>
+      <td>
+        <button class="btn ghost" hx-delete="/term-mappings/{{ r.artifact_id.split(':', 1)[1] }}"
+                hx-target="#rules" hx-swap="innerHTML">Delete</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="empty">No rules yet.</p>{% endif %}

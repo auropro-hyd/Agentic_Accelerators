@@ -30,7 +30,7 @@ from dla.importers import ImportReport, RawImport
 from dla.importers.csv_dictionary import import_dictionary
 from dla.importers.dbt_manifest import import_manifest
 from dla.importers.markdown_notes import import_notes
-from dla.importers.normalize import normalize_and_write
+from dla.importers.normalize import import_prior_bundle, normalize_and_write
 
 app = typer.Typer(help="Import client documentation (dictionary / notes / dbt manifest).")
 _log = get_logger("dla.cli.import")
@@ -86,13 +86,10 @@ def import_cmd(
     if config_path is None:
         typer.secho("error: --config is required.", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=3)
-    if prior_bundle is not None:
-        typer.secho("error: --prior-bundle is an M7 feature; not available yet.", fg=typer.colors.RED, err=True)
-        raise typer.Exit(code=3)
-    chosen = [x for x in (client_docs, dbt_manifest) if x is not None]
+    chosen = [x for x in (client_docs, dbt_manifest, prior_bundle) if x is not None]
     if len(chosen) != 1:
         typer.secho(
-            "error: pass exactly one of --client-docs or --dbt-manifest.",
+            "error: pass exactly one of --client-docs, --dbt-manifest, or --prior-bundle.",
             fg=typer.colors.RED,
             err=True,
         )
@@ -111,18 +108,21 @@ def import_cmd(
         typer.secho(f"path-not-found: {target}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=4)
 
-    if client_docs is not None:
-        records, skips = _gather_client_docs(target)
-        source_label = "client-docs"
-    else:
-        records, skips = import_manifest(target)
-        source_label = "dbt-manifest"
-
-    report = ImportReport(skipped=len(skips), skipped_reasons=skips)
     try:
-        normalize_and_write(
-            bundle_root=bundle_root, raws=records, source_id=cfg.source.source_id, report=report
-        )
+        if prior_bundle is not None:
+            source_label = "prior-bundle"
+            report = import_prior_bundle(bundle_root=bundle_root, prior_root=target)
+        else:
+            if client_docs is not None:
+                records, skips = _gather_client_docs(target)
+                source_label = "client-docs"
+            else:
+                records, skips = import_manifest(target)
+                source_label = "dbt-manifest"
+            report = ImportReport(skipped=len(skips), skipped_reasons=skips)
+            normalize_and_write(
+                bundle_root=bundle_root, raws=records, source_id=cfg.source.source_id, report=report
+            )
     except Exception as exc:
         typer.secho(f"import failed: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from exc

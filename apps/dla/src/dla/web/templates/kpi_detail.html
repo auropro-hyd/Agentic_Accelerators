@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ kpi.name }} — KPI{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/kpi">← KPIs</a></p>
+<h1>{{ kpi.name }}</h1>
+<p class="meta">{{ kpi.provenance }} · owner {{ kpi.owner }}</p>
+
+<section class="desc">
+  <h3>Business definition</h3>
+  <p>{{ kpi.business_definition }}</p>
+</section>
+
+<section class="desc">
+  <h3>Formula ({{ kpi.formula_kind }})</h3>
+  <p><code>{{ kpi.formula }}</code></p>
+  <p class="meta">
+    grain: {{ kpi.grain }}{% if kpi.dimensions %} · dimensions: {{ kpi.dimensions | join(", ") }}{% endif %}
+  </p>
+  <p class="meta">source tables: {% for r in kpi.source_table_refs %}<code>{{ r }}</code> {% endfor %}</p>
+</section>
+{% endblock %}
