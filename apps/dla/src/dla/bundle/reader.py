@@ -20,6 +20,7 @@ from dla.bundle.schema import (
     PatternPayload,
     ProfilePayload,
     ReadinessIssuePayload,
+    RecommendationPayload,
     ReconciliationResultPayload,
     RelationshipPayload,
     SourcePayload,
@@ -42,6 +43,7 @@ _MODEL_FOR_TYPE: dict[ArtifactType, type[CommonFields]] = {
     ArtifactType.PATTERN: PatternPayload,
     ArtifactType.KPI: KpiPayload,
     ArtifactType.TERM_MAPPING_RULE: TermMappingRulePayload,
+    ArtifactType.RECOMMENDATION: RecommendationPayload,
 }
 
 

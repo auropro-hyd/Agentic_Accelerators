@@ -112,6 +112,19 @@ class ThresholdsConfig(BaseModel):
     )
     """Noise tokens skipped by the glossary extractor (plus single chars and pure digits)."""
 
+    # Recommender (M8) thresholds — deterministic strategy selection (FR-018).
+    recommender_min_coverage: float = 0.5
+    """When overall review coverage is below this, the strategy confidence is
+    reduced and a `coverage_warning` is emitted (FR-023)."""
+    recommender_text_field_count: int = 3
+    """>= this many free-text columns is a signal toward the `vector` strategy."""
+    recommender_text_avg_length: int = 200
+    """Average free-text length (chars) at/above which `vector` is favored."""
+    recommender_graph_junction_count: int = 2
+    """>= this many junction/bridge tables is a signal toward `knowledge_graph`."""
+    recommender_graph_rel_density: float = 1.5
+    """Relationships-per-table at/above which `knowledge_graph` is favored."""
+
 
 class LLMConfig(_BaseLLMConfig):
     """dla's LLM settings — same as auropro-llm's, with dla's historical env-var default."""

@@ -16,7 +16,15 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from dla.web.routes import columns, conflicts, coverage, kpi, tables, term_mappings
+from dla.web.routes import (
+    columns,
+    conflicts,
+    coverage,
+    kpi,
+    recommender,
+    tables,
+    term_mappings,
+)
 
 _WEB_DIR = Path(__file__).parent
 
@@ -43,4 +51,5 @@ def create_app(*, bundle_root: Path, sme_name: str | None = None) -> FastAPI:
     app.include_router(conflicts.router)
     app.include_router(kpi.router)
     app.include_router(term_mappings.router)
+    app.include_router(recommender.router)
     return app

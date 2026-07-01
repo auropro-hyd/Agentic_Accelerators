@@ -344,6 +344,45 @@ class TermMappingRulePayload(CommonFields):
     precedence: int = 0
 
 
+# --- M8 entities (strategy recommender) ---
+
+
+class Strategy(StrEnum):
+    """Downstream retrieval strategy the recommender selects (E12 / FR-018)."""
+
+    PLAIN_SCHEMA = "plain_schema"
+    VECTOR = "vector"
+    KNOWLEDGE_GRAPH = "knowledge_graph"
+
+
+class StrategyConfidence(StrEnum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class RecommendationPayload(CommonFields):
+    """One recommender run's output (data-model.md §E12).
+
+    Deterministic: the recommender takes no LLM in its decision path (FR-018),
+    so the same bundle always yields the same recommendation. This is the bridge
+    from the data layer (L1) to the downstream agentic accelerators — the chosen
+    strategy tells the next layer whether a plain relational schema, a vector
+    store, or a knowledge graph best fits the client's data.
+    """
+
+    artifact_type: Literal[ArtifactType.RECOMMENDATION] = ArtifactType.RECOMMENDATION
+    recommended_strategy: Strategy
+    strategy_confidence: StrategyConfidence
+    reasoning: str
+    signals_detected: dict[str, Any] = Field(default_factory=dict)
+    alternatives_considered: list[dict[str, Any]] = Field(default_factory=list)
+    """`[{strategy, why_not}]` for the two strategies not chosen."""
+    coverage_warning: str | None = None
+    override: dict[str, Any] | None = None
+    """`{chosen_strategy, override_reason, overridden_by, overridden_at}` when an SME overrides."""
+
+
 # --- Bundle manifest (top-level) ---
 
 
