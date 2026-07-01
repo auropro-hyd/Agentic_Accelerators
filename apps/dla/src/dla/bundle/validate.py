@@ -16,7 +16,7 @@ from json import JSONDecodeError, loads
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from dla.bundle.layout import directory_for, manifest_path
+from dla.bundle.layout import directory_for
 from dla.bundle.reader import load_json_artifact, load_manifest
 from dla.bundle.schema import ArtifactType, CommonFields, KpiPayload, TablePayload
 
@@ -79,7 +79,7 @@ def _validate_schema(bundle_root: Path) -> list[Finding]:
         for path in paths:
             try:
                 load_json_artifact(path)
-            except Exception as exc:  # noqa: BLE001 — any parse/validation failure is a finding
+            except Exception as exc:  # any parse/validation failure is a finding
                 findings.append(
                     Finding(
                         "error",
@@ -107,7 +107,7 @@ def _safe_iter(bundle_root: Path, artifact_type: ArtifactType) -> list[CommonFie
     for p in paths:
         try:
             out.append(load_json_artifact(p))
-        except Exception:  # noqa: BLE001 — malformed artifacts are reported elsewhere
+        except Exception:  # malformed artifacts are reported elsewhere
             continue
     return out
 

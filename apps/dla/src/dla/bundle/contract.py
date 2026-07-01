@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated, Any, Union
+from typing import Annotated, Any
 
 from pydantic import Field, TypeAdapter
 
@@ -38,23 +38,21 @@ SCHEMA_VERSION = "1.0.0"
 # Discriminated union over every persisted artifact payload. CoverageRecord is
 # omitted deliberately — it is computed on demand (E13), never written to disk.
 _ArtifactUnion = Annotated[
-    Union[
-        SourcePayload,
-        TablePayload,
-        ColumnPayload,
-        RelationshipPayload,
-        IndexPayload,
-        ProfilePayload,
-        ReadinessIssuePayload,
-        DescriptionPayload,
-        GlossaryEntryPayload,
-        PatternPayload,
-        KpiPayload,
-        ImportedArtifactPayload,
-        ReconciliationResultPayload,
-        TermMappingRulePayload,
-        RecommendationPayload,
-    ],
+    SourcePayload
+    | TablePayload
+    | ColumnPayload
+    | RelationshipPayload
+    | IndexPayload
+    | ProfilePayload
+    | ReadinessIssuePayload
+    | DescriptionPayload
+    | GlossaryEntryPayload
+    | PatternPayload
+    | KpiPayload
+    | ImportedArtifactPayload
+    | ReconciliationResultPayload
+    | TermMappingRulePayload
+    | RecommendationPayload,
     Field(discriminator="artifact_type"),
 ]
 
