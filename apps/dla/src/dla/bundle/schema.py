@@ -386,12 +386,18 @@ class RecommendationPayload(CommonFields):
 # --- Bundle manifest (top-level) ---
 
 
+# Single source of truth for the bundle contract version. The published JSON
+# Schema (`bundle-schema.json`) and every manifest carry this exact string; a
+# parity test (T183) pins them equal so the contract can never silently drift.
+SCHEMA_VERSION = "1.0.0"
+
+
 class BundleManifest(BaseModel):
     """`bundle/bundle.json` — top-level manifest."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = "1.0.0-m1"
+    schema_version: str = SCHEMA_VERSION
     source_id: str
     last_run_at: datetime
     artifact_counts: dict[str, int] = Field(default_factory=dict)

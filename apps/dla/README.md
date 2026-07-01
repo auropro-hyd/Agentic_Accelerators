@@ -20,9 +20,9 @@ markdown + JSON files describing what it found.
 | **Auto-drafted descriptions and reviewer edit loop (M3)**   | Released   |
 | **Web review interface for non-technical reviewers (M4)**   | Released   |
 | **Client-documentation import and reconciliation (M5)**     | Released   |
-| Business glossary and pattern catalog (M6)                  | Upcoming   |
-| KPI workbook ingest and coverage analysis (M7)              | Upcoming   |
-| Strategy recommender and published bundle schema (M8)       | Upcoming   |
+| **Business glossary and pattern catalog (M6)**              | Released   |
+| **KPI workbook, coverage, prior-bundle import, term mapping (M7)** | Released   |
+| **Strategy recommender, bundle contract, end-to-end orchestrator (M8)** | Released   |
 
 Each milestone is independently demonstrable and **additive** — new
 work only writes new directories under `bundle/`; it never modifies
@@ -44,6 +44,9 @@ overwritten).
 - [Auto-drafted descriptions (M3)](#auto-drafted-descriptions-m3)
 - [Web review interface (M4)](#web-review-interface-m4)
 - [Client-documentation import and reconciliation (M5)](#client-documentation-import-and-reconciliation-m5)
+- [Business glossary and pattern catalog (M6)](#business-glossary-and-pattern-catalog-m6)
+- [KPI workbook and review coverage (M7)](#kpi-workbook-and-review-coverage-m7)
+- [Full pipeline and strategy recommendation (M8)](#full-pipeline-and-strategy-recommendation-m8)
 - [Commands](#commands)
 - [Exit codes](#exit-codes)
 - [Configuration](#configuration)
@@ -96,13 +99,17 @@ bundle/
 ├── descriptions/                            # auto-drafted + reviewed text (M3/M4)
 │   ├── table.<schema>.<table>.{md,json}
 │   └── column.<schema>.<table>.<col>.{md,json}
-└── imports/                                 # client-doc import + reconciliation (M5)
-    ├── artifacts/        <format>.<target>.{md,json}     # imported records
-    └── reconciliation/   <result-key>.{md,json}          # match / conflict / gap buckets
+├── glossary/                                # recurring business terms (M6)
+├── patterns/                                # detected star/snowflake/junction/audit shapes (M6)
+├── kpi/                                     # SME-authored KPI workbook entries (M7)
+├── coverage/                                # SME review coverage per artifact type (M7)
+├── term_mappings/                           # SME term-mapping rules (M7)
+├── imports/                                 # client-doc import + reconciliation (M5)
+│   ├── artifacts/        <format>.<target>.{md,json}     # imported records
+│   └── reconciliation/   <result-key>.{md,json}          # match / conflict / gap buckets
+├── recommendation/                          # the strategy recommendation, one per run (M8)
+└── .run_state.json                          # orchestrator step state, resume support (M8)
 ```
-
-Upcoming milestones add more sub-directories (`glossary/`, `patterns/`,
-`kpi/`, `coverage/`, `recommendation/`) — each additive.
 
 The **markdown** carries YAML frontmatter for structured metadata plus
 a freeform body. The body is the field that reviewers edit. The
@@ -347,6 +354,111 @@ When a reviewer settles a conflict, the imported item is marked
 column's description, with a `prior_sources` audit trail recording both
 the documented value and the discovered evidence it was chosen over.
 
+## Business glossary and pattern catalog (M6)
+
+`dla glossary build` scans the discovered schema for terms that recur
+across tables and columns, proposes each term that meets a recurrence
+threshold, and drafts a plain-language definition for it. `dla patterns
+detect` runs the structural detectors over the schema and records the
+shapes it finds — star, snowflake, junction, and audit-column patterns —
+under `patterns/`.
+
+```bash
+# List recurring terms without calling a model:
+uv run dla glossary build --config config/examples/postgres_minimal.yaml --mode dry-run
+
+# Draft a definition for each term (model provider is config-driven):
+uv run dla glossary build --config config/examples/postgres_minimal.yaml --mode live
+
+# Propose only terms that appear at least four times:
+uv run dla glossary build --config config/examples/postgres_minimal.yaml --min-recurrence 4
+
+# Detect structural patterns over the discovered schema:
+uv run dla patterns detect --config config/examples/postgres_minimal.yaml
+```
+
+Glossary drafting is idempotent the same way `describe` is: a re-run that
+finds unchanged usages costs nothing (pass `--force` to re-draft anyway).
+
+## KPI workbook and review coverage (M7)
+
+`dla kpi add` records a subject-matter expert's KPI definition in the
+workbook under `kpi/`: each entry captures the formula, its grain, the
+owner, and the source tables it draws from. `dla coverage` reports how
+much of the bundle a reviewer has signed off on, broken down per artifact
+type.
+
+```bash
+# Add a KPI to the workbook (all listed flags are required):
+uv run dla kpi add --config config/examples/postgres_minimal.yaml \
+  --name monthly_active_customers \
+  --definition "Distinct customers with an order in the trailing 30 days" \
+  --formula "count(distinct customer_id)" \
+  --grain "one row per calendar month" \
+  --owner "Data Steward" \
+  --source-tables "public.orders,public.customers"
+
+# Report review coverage per artifact type:
+uv run dla coverage --config config/examples/postgres_minimal.yaml
+uv run dla coverage --config config/examples/postgres_minimal.yaml --format json
+```
+
+M7 also carries SME work forward across engagements: term-mapping rules
+(kept under `term_mappings/`, they outrank fuzzy reconciliation matching)
+and prior-bundle import, so definitions settled once do not have to be
+re-derived.
+
+## Full pipeline and strategy recommendation (M8)
+
+`dla run` drives the whole pipeline from a clean source to a validated
+bundle in one command: discover, profile, readiness, patterns, recommend,
+and validate, plus the two LLM-gated steps (describe, glossary) when
+`--llm` is set. Progress is recorded to `bundle/.run_state.json` after
+each step, so a failed or interrupted run can be resumed.
+
+`dla recommend` then reads the whole bundle and picks a downstream
+retrieval strategy — `plain_schema`, `vector`, or `knowledge_graph`. The
+decision is **deterministic**: no model sits in the decision path, so the
+same bundle always yields the same recommendation. `dla bundle
+export-schema` publishes the machine-readable JSON Schema from the
+in-process models, and `dla bundle validate` checks every artifact against
+the contract.
+
+```bash
+# Offline pipeline: discover .. recommend .. validate
+uv run dla run --config config/examples/postgres_minimal.yaml
+
+# Also draft descriptions + glossary (needs an LLM credential):
+uv run dla run --config config/examples/postgres_minimal.yaml --llm
+
+# Resume after the last completed step, or start at a named step:
+uv run dla run --config config/examples/postgres_minimal.yaml --resume
+uv run dla run --config config/examples/postgres_minimal.yaml --from-step patterns
+
+# Skip a step, or halt before describe if readiness is critical:
+uv run dla run --config config/examples/postgres_minimal.yaml --skip-step glossary
+uv run dla run --config config/examples/postgres_minimal.yaml --stop-on-readiness-critical
+
+# Inspect the recommendation with its reasoning and alternatives:
+uv run dla recommend --config config/examples/postgres_minimal.yaml --explain
+
+# Record an SME override (both flags required):
+uv run dla recommend --config config/examples/postgres_minimal.yaml \
+  --override knowledge_graph --reason "Client needs entity-level traversal"
+
+# Publish the schema and validate the bundle against the contract:
+uv run dla bundle export-schema --out config/schemas/bundle-schema.json
+uv run dla bundle validate --config config/examples/postgres_minimal.yaml
+uv run dla bundle validate --config config/examples/postgres_minimal.yaml --strict
+```
+
+The `dla run` pipeline closes by validating the bundle against the
+contract, so a clean run ends with a hand-off-ready deliverable: the
+bundle directory, the generated `bundle-schema.json`, and the
+deterministic recommendation. `knowledge_graph` routes to the
+knowledge-graph accelerator, `vector` to the vector/semantic layer,
+`plain_schema` to straight relational modeling.
+
 ---
 
 ## Commands
@@ -375,6 +487,16 @@ controls where output lands.
 | `dla import --config <yaml> --dbt-manifest <path>`                     | Import a dbt `manifest.json` (parsed as plain JSON; no code is executed).                                           |
 | `dla reconcile --config <yaml>`                                        | Classify every imported artifact against the discovered schema into match / conflict / gap buckets.                |
 | `dla reconcile --config <yaml> --bucket <name>` / `--auto-confirm-matches` | List one bucket, or accept all `match` items in bulk.                                                          |
+| `dla glossary build --config <yaml> --mode {live,dry-run}`             | Extract recurring schema terms and draft a definition for each (flags: `--min-recurrence`, `--force`).            |
+| `dla patterns detect --config <yaml>`                                  | Run all structural detectors over the schema and write `bundle/patterns/*` (star, snowflake, junction, audit).     |
+| `dla kpi add --config <yaml> --name --definition --formula --grain --owner --source-tables` | Add (or update) a KPI in the workbook (optional: `--formula-kind`, `--dimensions`).            |
+| `dla coverage --config <yaml> --format {table,json}`                   | Report SME review coverage per artifact type.                                                                     |
+| `dla recommend --config <yaml> --explain`                              | Recommend a downstream strategy (`plain_schema` / `vector` / `knowledge_graph`); `--explain` prints reasoning, signals, and alternatives. |
+| `dla recommend --config <yaml> --override <strategy> --reason <text>`  | Record an SME override of the recommended strategy (both flags required).                                          |
+| `dla bundle export-schema --out <path>`                                | Write the published JSON Schema from the in-process pydantic models.                                              |
+| `dla bundle validate --config <yaml>` / `--bundle-dir <path>` / `--strict` | Validate every artifact against the contract; `--strict` treats warnings as failures too.                     |
+| `dla run --config <yaml>`                                              | Run the full pipeline (discover .. recommend .. validate) end to end; offline unless `--llm` is set.              |
+| `dla run --config <yaml> --llm --from-step <step> --skip-step <step> --resume --stop-on-readiness-critical` | Enable LLM steps, control the plan, resume after the last completed step, or halt on a critical readiness issue. |
 
 Help for any subcommand:
 
@@ -395,13 +517,13 @@ CI gates and scripts can branch on the kind of failure.
 | Code | Meaning                                                                            |
 | ---- | ---------------------------------------------------------------------------------- |
 | 0    | Success.                                                                           |
-| 1    | Generic failure (unhandled exception). Check stderr for the message.               |
-| 2    | Connection error — bad credentials, unreachable host, missing CSV folder; or an LLM-gateway/transport failure during `describe`. |
-| 3    | Configuration error — missing or malformed YAML, invalid fields, missing env var, or a usage error (e.g. a non-local UI bind host). |
-| 4    | Referenced artifact or path not found (e.g. `describe --column` / `import` target). |
-| 5    | LLM response could not be parsed during `describe`.                                |
-
-(Code 6 is reserved for upcoming milestones.)
+| 1    | Generic error.                                                                     |
+| 2    | Connection / source / LLM-provider transport failure.                              |
+| 3    | Config or usage error.                                                             |
+| 4    | Resource not found (artifact / path / table / column).                             |
+| 5    | Validation failure (bundle-contract validation, or an unparseable LLM response).   |
+| 6    | User-cancelled / nothing to resume.                                                |
+| 7    | Halted by policy (readiness-critical stop via `--stop-on-readiness-critical`).     |
 
 ---
 
@@ -514,7 +636,7 @@ fails fast with exit code 3 if a required variable is unset.
 ├── scripts/install.sh            # one-shot dev environment setup (cds to workspace root)
 ├── src/dla/                      # all source code
 │   ├── bundle/                   # on-disk format: schema, layout, provenance, reader, writer
-│   ├── cli/                      # Typer CLI entrypoints (discover, profile, readiness, describe, ui, import, reconcile)
+│   ├── cli/                      # Typer CLI entrypoints (discover, profile, readiness, describe, ui, import, reconcile, glossary, patterns, kpi, coverage, recommend, bundle, run, version)
 │   ├── config/                   # pydantic config models + loader
 │   ├── connectors/               # Postgres, CSV (extensible to other providers)
 │   ├── discovery/                # schema introspection, relationship inference, confidence tagging
@@ -524,7 +646,13 @@ fails fast with exit code 3 if a required variable is unset.
 │   ├── describe/                 # auto-draft engine: grounding, idempotency, edit preservation (M3)
 │   ├── web/                      # local review interface: FastAPI app, routes, templates, static (M4)
 │   ├── importers/                # CSV/Excel, markdown, dbt-manifest importers + normalizer (M5)
-│   └── reconciliation/           # matcher, classifier, resolver (M5)
+│   ├── reconciliation/           # matcher, classifier, resolver (M5)
+│   ├── glossary/                 # recurring-term extraction + definition drafting (M6)
+│   ├── patterns/                 # structural detectors: star, snowflake, junction, audit (M6)
+│   ├── kpi/                      # KPI workbook models + writer (M7)
+│   ├── coverage/                 # SME review-coverage analysis (M7)
+│   ├── recommender/              # deterministic strategy recommender (M8)
+│   └── orchestrator/             # end-to-end pipeline runner + resumable run state (M8)
 │   # Note: LLM gateway (llm/) and logging/config (logging_ctx/) have been extracted
 │   # into workspace packages: auropro-llm (libs/llm) and auropro-core (libs/core).
 └── tests/
@@ -641,9 +769,9 @@ increment, additive to the bundle.
 | **M3**    | Auto-drafted descriptions grounded in discovered facts and profiles; markdown review loop with edit preservation | Released   |
 | **M4**    | Local web interface for reviewing and editing drafts                                                  | Released   |
 | **M5**    | Client-documentation import (CSV / Excel / dbt manifest) with reconciliation against discovered evidence | Released   |
-| **M6**    | Cross-engagement glossary and pattern catalog (audit, junction, lookup, etc.)                         | Upcoming   |
-| **M7**    | KPI workbook ingest and coverage analysis                                                             | Upcoming   |
-| **M8**    | Strategy recommender, published bundle JSON schema, and a Snowflake connector                         | Upcoming   |
+| **M6**    | Cross-engagement glossary and pattern catalog (audit, junction, lookup, etc.)                         | Released   |
+| **M7**    | KPI workbook, review-coverage analysis, prior-bundle import, and SME term mapping                     | Released   |
+| **M8**    | Deterministic strategy recommender, published bundle JSON schema, and end-to-end pipeline orchestrator | Released   |
 
 For the published scope document see
 [`docs/Accelerators_Scope_v5.md`](docs/Accelerators_Scope_v5.md).

@@ -15,6 +15,7 @@ from typing import Annotated, Any
 from pydantic import Field, TypeAdapter
 
 from dla.bundle.schema import (
+    SCHEMA_VERSION,
     ColumnPayload,
     DescriptionPayload,
     GlossaryEntryPayload,
@@ -32,8 +33,8 @@ from dla.bundle.schema import (
     TermMappingRulePayload,
 )
 
-# Bump when any artifact schema changes shape in a breaking way.
-SCHEMA_VERSION = "1.0.0"
+# SCHEMA_VERSION is defined in dla.bundle.schema (single source of truth) and
+# re-exported here for callers that import it from the contract module.
 
 # Discriminated union over every persisted artifact payload. CoverageRecord is
 # omitted deliberately — it is computed on demand (E13), never written to disk.

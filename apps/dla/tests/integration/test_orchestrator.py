@@ -14,17 +14,20 @@ from dla.bundle.schema import (
     ArtifactType,
     BundleManifest,
     ColumnPayload,
+    Confidence,
     CreatedBy,
     NormalizedType,
     ProfileMode,
     ProfilePayload,
     ProfileStatus,
+    RelationshipPayload,
     TablePayload,
 )
 from dla.bundle.writer import write_artifact, write_manifest
 from dla.config.models import Config, CsvFolderConnectionConfig, SourceConfig
 from dla.orchestrator import STEP_ORDER, load_state, plan_steps, run_pipeline
-from dla.orchestrator.runner import ReadinessCriticalStop, StepContext
+from dla.orchestrator import runner as _runner
+from dla.orchestrator.runner import PipelineError, ReadinessCriticalStop, StepContext
 from dla.orchestrator.state import RunState
 
 _TS = datetime(2026, 1, 1, tzinfo=UTC)
@@ -48,6 +51,34 @@ def _seed_schema(bundle: Path) -> None:
                      name="public.orders", column_names=["id"], **_C),
         body="t",
     )
+
+
+def _seed_with_junction(bundle: Path) -> None:
+    """A bundle whose patterns step produces at least one artifact (a junction),
+    so 'not redone on resume' can be observed on a real file."""
+    write_manifest(bundle, BundleManifest(source_id="s", last_run_at=_TS, bundle_root=str(bundle)))
+
+    def _tbl(name: str, cols: list[str]) -> None:
+        write_artifact(bundle, TablePayload(artifact_id=f"table:{name}", provenance=Provenance.DISCOVERED,
+                       name=name, column_names=cols, **_C), body="t")
+        for c in cols:
+            write_artifact(bundle, ColumnPayload(artifact_id=f"column:{name}:{c}", provenance=Provenance.DISCOVERED,
+                           name=c, table_ref=f"table:{name}", data_type="int",
+                           normalized_type=NormalizedType.INTEGER, is_nullable=False, is_pk=False,
+                           is_unique=False, **_C), body="c")
+
+    def _fk(ft: str, fc: str, tt: str) -> None:
+        write_artifact(bundle, RelationshipPayload(
+            artifact_id=f"relationship:{ft}.{fc}->{tt}.id", provenance=Provenance.DISCOVERED,
+            confidence=Confidence.EXPLICIT, from_column_ref=f"column:{ft}:{fc}",
+            to_column_ref=f"column:{tt}:id", relationship_type="declared_fk", signals=["declared_fk"], **_C),
+            body="r")
+
+    _tbl("public.users", ["id"])
+    _tbl("public.roles", ["id"])
+    _tbl("public.user_roles", ["user_id", "role_id"])  # junction: 2 cols, 2 FKs
+    _fk("public.user_roles", "user_id", "public.users")
+    _fk("public.user_roles", "role_id", "public.roles")
 
 
 # --- planning --------------------------------------------------------------
@@ -138,3 +169,66 @@ def test_stop_on_readiness_critical(tmp_path: Path) -> None:
         run_pipeline(ctx, steps=["readiness", "recommend"])
     # recommend must not have run.
     assert not iter_artifacts(b, ArtifactType.RECOMMENDATION)
+
+
+def test_resume_after_failure_does_not_redo_completed(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """T189: a step fails; resuming continues past the completed steps and does
+    not redo them."""
+    b = tmp_path / "bundle"
+    b.mkdir()
+    _seed_with_junction(b)
+    ctx = StepContext(cfg=_cfg(tmp_path), bundle_root=b, connector=None, gateway=None)
+
+    # Make `recommend` fail on its first invocation, succeed afterwards.
+    real_recommend = _runner._STEPS["recommend"]
+    calls = {"n": 0}
+
+    def _flaky(c: StepContext) -> None:
+        if calls["n"] == 0:
+            calls["n"] += 1
+            raise RuntimeError("transient boom")
+        real_recommend(c)
+
+    monkeypatch.setitem(_runner._STEPS, "recommend", _flaky)
+
+    with pytest.raises(PipelineError):
+        run_pipeline(ctx, steps=["patterns", "recommend", "validate"])
+    state = load_state(b)
+    assert "patterns" in state.completed and state.last_failed == "recommend"
+    assert not iter_artifacts(b, ArtifactType.RECOMMENDATION)  # recommend never wrote
+
+    # Snapshot the patterns artifacts — they must NOT be rewritten on resume.
+    patt = sorted((b / "patterns").glob("*.json"))
+    assert patt, "patterns step should have produced artifacts"
+    before = {p: p.stat().st_mtime_ns for p in patt}
+
+    resume_plan = plan_steps(resume=True, state=load_state(b))
+    assert "patterns" not in resume_plan and resume_plan[0] == "recommend"
+    result = run_pipeline(ctx, steps=resume_plan)
+    assert result.failed is None
+    assert iter_artifacts(b, ArtifactType.RECOMMENDATION)  # recommend ran on resume
+    for p, mtime in before.items():
+        assert p.stat().st_mtime_ns == mtime, f"{p.name} was redone on resume"
+
+
+def test_unchanged_rerun_zero_diff(tmp_path: Path) -> None:
+    """T190/SC-007: re-running the pipeline on an unchanged bundle rewrites
+    nothing (byte-identical, untouched files) — and touches no LLM (offline)."""
+    b = tmp_path / "bundle"
+    b.mkdir()
+    _seed_with_junction(b)
+    ctx = StepContext(cfg=_cfg(tmp_path), bundle_root=b, connector=None, gateway=None)
+    steps = ["patterns", "recommend", "validate"]
+
+    r1 = run_pipeline(ctx, steps=steps)
+    assert r1.failed is None
+    produced = sorted((b / "patterns").glob("*.json")) + sorted((b / "recommendation").glob("*.json"))
+    assert produced
+    snapshot = {p: (p.stat().st_mtime_ns, p.read_bytes()) for p in produced}
+
+    r2 = run_pipeline(ctx, steps=steps)
+    assert r2.failed is None
+    for p, (mtime, data) in snapshot.items():
+        assert p.exists()
+        assert p.read_bytes() == data, f"{p.name} content changed on unchanged re-run"
+        assert p.stat().st_mtime_ns == mtime, f"{p.name} was rewritten on unchanged re-run"

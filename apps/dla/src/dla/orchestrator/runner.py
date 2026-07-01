@@ -15,6 +15,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 from auropro_core.logging import get_logger
@@ -33,6 +34,11 @@ from dla.readiness.report import assemble
 from dla.recommender.engine import recommend
 
 _log = get_logger("dla.orchestrator")
+
+
+def _ms(start: float) -> int:
+    """Elapsed milliseconds since a `monotonic()` start marker (FR-025)."""
+    return round((monotonic() - start) * 1000)
 
 STEP_ORDER: tuple[str, ...] = (
     "discover",
@@ -165,6 +171,7 @@ def run_pipeline(
 
     for step in plan:
         with_ctx = {"step": step, "bundle": str(ctx.bundle_root)}
+        started = monotonic()
         try:
             if step == "validate":
                 report = validate_bundle(ctx.bundle_root)
@@ -173,31 +180,31 @@ def run_pipeline(
                     state.mark_failed(step)
                     save_state(ctx.bundle_root, state)
                     result.failed = step
-                    _log.info("step_failed", **with_ctx, errors=len(report.errors))
+                    _log.info("step_failed", **with_ctx, errors=len(report.errors), duration_ms=_ms(started))
                     return result
             else:
                 fn = _STEPS[step]
                 outcome = fn(ctx)
                 if outcome is False:  # LLM step skipped (no gateway)
                     result.skipped.append(step)
-                    _log.info("step_skipped", **with_ctx, reason="no gateway")
+                    _log.info("step_skipped", **with_ctx, reason="no gateway", duration_ms=_ms(started))
                     continue
         except ReadinessCriticalStop:
             # A deliberate halt, not a failure — record the stop and re-raise as-is.
             state.mark_failed(step)
             save_state(ctx.bundle_root, state)
             result.failed = step
-            _log.info("step_halted", **with_ctx, reason="readiness critical")
+            _log.info("step_halted", **with_ctx, reason="readiness critical", duration_ms=_ms(started))
             raise
         except Exception as exc:
             state.mark_failed(step)
             save_state(ctx.bundle_root, state)
             result.failed = step
-            _log.info("step_failed", **with_ctx, error=str(exc))
+            _log.info("step_failed", **with_ctx, error=str(exc), duration_ms=_ms(started))
             raise PipelineError(step, exc) from exc
         state.mark_completed(step)
         save_state(ctx.bundle_root, state)
         result.completed.append(step)
-        _log.info("step_done", **with_ctx)
+        _log.info("step_done", **with_ctx, duration_ms=_ms(started))
 
     return result

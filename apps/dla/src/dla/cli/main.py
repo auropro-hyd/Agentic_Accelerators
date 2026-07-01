@@ -1,13 +1,15 @@
 """Typer-based CLI entrypoint.
 
-Exit codes follow `contracts/cli-commands.md`:
+Exit codes (canonical map — `contracts/cli-commands.md` and
+`docs/operator-guide.md` mirror this table):
     0 — success
     1 — generic error
-    2 — connection / IO failure
-    3 — config validation failure
-    4 — schema validation failure
-    5 — provenance violation
-    6 — user-cancelled
+    2 — connection / source / LLM-provider transport failure
+    3 — config or usage error
+    4 — resource not found (artifact, path, table, column)
+    5 — validation failure (bundle contract validation, or unparseable LLM response)
+    6 — user-cancelled / nothing to resume
+    7 — halted by policy (readiness-critical stop)
 """
 
 from __future__ import annotations

@@ -7,7 +7,7 @@
     dla run -c <yaml> --skip-step readiness --stop-on-readiness-critical
 
 Exit codes: 0 success · 1 step failure · 2 connection · 3 config/usage ·
-4 validation failure · 7 halted on critical readiness.
+5 validation failure · 6 nothing to resume · 7 halted on critical readiness.
 """
 
 from __future__ import annotations
@@ -97,6 +97,13 @@ def run_cmd(
         typer.secho(f"error: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=3) from exc
 
+    if not steps:
+        typer.secho(
+            "nothing to run — all steps already completed (nothing to resume).",
+            fg=typer.colors.YELLOW,
+        )
+        raise typer.Exit(code=6)
+
     connector = _build_connector(cfg.source.provider, cfg.source.connection())
     gateway = None
     model = ""
@@ -143,7 +150,7 @@ def run_cmd(
             fg=typer.colors.RED,
             bold=True,
         )
-        raise typer.Exit(code=4)
+        raise typer.Exit(code=5)
     typer.echo(typer.style("Pipeline complete.", fg=typer.colors.GREEN, bold=True))
     typer.echo(f"  completed: {', '.join(result.completed)}")
     if result.skipped:

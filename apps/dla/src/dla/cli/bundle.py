@@ -3,7 +3,7 @@
     dla bundle export-schema [--out <path>]
     dla bundle validate -c <yaml>
 
-Exit codes: 0 success · 3 config/usage · 4 schema/validation failure.
+Exit codes: 0 success · 3 config/usage · 5 validation failure.
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ def validate_cmd(
         fg=typer.colors.RED,
         bold=True,
     )
-    raise typer.Exit(code=4)
+    raise typer.Exit(code=5)
 
 
 __all__ = ["DEFAULT_SCHEMA_PATH", "app"]
