@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Strategy — DLA{% endblock %}
+{% block content %}
+<h1>Strategy recommendation</h1>
+<p class="meta">The downstream retrieval strategy the accelerator recommends for the agentic layer — derived deterministically from the bundle's signals.</p>
+
+{% if error %}<p class="empty" style="color:#b00">{{ error }}</p>{% endif %}
+
+{% if not rec %}
+  <p class="empty">No recommendation yet. Run <code>dla recommend -c &lt;config&gt;</code>.</p>
+{% else %}
+  <section class="rec-card">
+    <div class="rec-headline">
+      <span class="rec-strategy">{{ rec.recommended_strategy.value }}</span>
+      <span class="rec-conf conf-{{ rec.strategy_confidence.value }}">{{ rec.strategy_confidence.value }} confidence</span>
+    </div>
+    {% if rec.coverage_warning %}<p class="rec-warn">⚠ {{ rec.coverage_warning }}</p>{% endif %}
+    <p class="rec-reason">{{ rec.reasoning }}</p>
+
+    {% if rec.override %}
+    <div class="rec-override">
+      <strong>SME override:</strong> {{ rec.override.chosen_strategy }} — {{ rec.override.override_reason }}
+      <span class="meta">(by {{ rec.override.overridden_by }})</span>
+    </div>
+    {% endif %}
+  </section>
+
+  <h2>Signals</h2>
+  <table class="grid">
+    <tbody>
+      {% for key, value in rec.signals_detected.items() %}
+      <tr><td>{{ key }}</td><td><code>{{ value }}</code></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Alternatives considered</h2>
+  <ul>
+    {% for alt in rec.alternatives_considered %}
+    <li><strong>{{ alt.strategy }}</strong> — {{ alt.why_not }}</li>
+    {% endfor %}
+  </ul>
+
+  <h2>Override the recommendation</h2>
+  <form method="post" action="/recommender/override" class="rec-override-form">
+    <label>Strategy
+      <select name="strategy">
+        <option value="plain_schema">plain_schema</option>
+        <option value="vector">vector</option>
+        <option value="knowledge_graph">knowledge_graph</option>
+      </select>
+    </label>
+    <label>Reason <input type="text" name="reason" placeholder="why this strategy instead" required></label>
+    <button type="submit">Record override</button>
+  </form>
+{% endif %}
+{% endblock %}

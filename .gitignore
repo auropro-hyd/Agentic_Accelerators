@@ -29,6 +29,10 @@ venv/
 # Bundle outputs (per-engagement; never committed)
 bundle/
 bundle_*/
+# ...but the `dla.bundle` source package must always be tracked (the rule above
+# otherwise matches it by directory name).
+!apps/dla/src/dla/bundle/
+!apps/dla/src/dla/bundle/**
 
 # Node / web UI build artifacts
 node_modules/
