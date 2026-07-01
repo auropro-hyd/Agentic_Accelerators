@@ -7,8 +7,8 @@ completed work and gives operators a durable record of where a run stopped.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
+from json import JSONDecodeError, dumps, loads
 from pathlib import Path
 
 _STATE_FILENAME = ".run_state.json"
@@ -38,8 +38,8 @@ def load_state(bundle_root: Path) -> RunState:
     if not path.exists():
         return RunState()
     try:
-        raw = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
+        raw = loads(path.read_text())
+    except (JSONDecodeError, OSError):
         return RunState()
     return RunState(
         completed=list(raw.get("completed", [])),
@@ -51,7 +51,7 @@ def save_state(bundle_root: Path, state: RunState) -> Path:
     bundle_root.mkdir(parents=True, exist_ok=True)
     path = _state_path(bundle_root)
     path.write_text(
-        json.dumps({"completed": state.completed, "last_failed": state.last_failed}, indent=2) + "\n",
+        dumps({"completed": state.completed, "last_failed": state.last_failed}, indent=2) + "\n",
         encoding="utf-8",
     )
     return path

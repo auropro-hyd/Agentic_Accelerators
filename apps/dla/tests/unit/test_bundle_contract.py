@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
+from json import dumps, loads
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +43,7 @@ def _valid_bundle(bundle: Path) -> None:
 def test_export_schema_writes_versioned_json(tmp_path: Path) -> None:
     dest = tmp_path / "bundle-schema.json"
     export_schema(dest)
-    data = json.loads(dest.read_text())
+    data = loads(dest.read_text())
     assert data["version"] == SCHEMA_VERSION
     assert "$defs" in data
     # The discriminated union must include the M8 recommendation payload.
@@ -72,7 +72,7 @@ def test_validate_flags_malformed_artifact(tmp_path: Path) -> None:
     _valid_bundle(b)
     # Corrupt a table JSON so it no longer matches the contract.
     bad = b / "schema" / "tables" / "public.orders.json"
-    bad.write_text(json.dumps({"artifact_type": "table", "nope": 1}))
+    bad.write_text(dumps({"artifact_type": "table", "nope": 1}))
     report = validate_bundle(b)
     assert not report.ok
     assert any(f.code == "malformed_artifact" for f in report.errors)
