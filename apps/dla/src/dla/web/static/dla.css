@@ -76,3 +76,17 @@ tr.attn td { background: #fffbeb; }
 .bar { display: inline-block; width: 160px; height: 10px; background: #eef2f7; border-radius: 5px; vertical-align: middle; overflow: hidden; }
 .bar-fill { display: block; height: 100%; background: var(--ok); }
 .edit-form input, .edit-form select { width: 100%; max-width: 520px; font: inherit; padding: .4rem .5rem; border: 1px solid var(--line); border-radius: 6px; margin-bottom: .2rem; }
+
+/* M8 — strategy recommender */
+.rec-card { border: 1px solid #ddd; border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; background: #fafafa; }
+.rec-headline { display: flex; align-items: center; gap: .75rem; }
+.rec-strategy { font-size: 1.4rem; font-weight: 700; font-family: monospace; }
+.rec-conf { font-size: .8rem; padding: .15rem .5rem; border-radius: 999px; color: #fff; }
+.conf-high { background: #1a7f37; }
+.conf-medium { background: #9a6700; }
+.conf-low { background: #b35900; }
+.rec-warn { color: #9a6700; font-weight: 600; }
+.rec-reason { margin: .5rem 0 0; }
+.rec-override { margin-top: .75rem; padding: .5rem .75rem; background: #eef6ff; border-radius: 6px; }
+.rec-override-form { display: flex; gap: .75rem; align-items: end; flex-wrap: wrap; margin-top: .5rem; }
+.rec-override-form label { display: flex; flex-direction: column; font-size: .85rem; gap: .2rem; }

@@ -29,6 +29,7 @@ from dla.bundle.schema import (
     ProfilePayload,
     ProfileStatus,
     ReadinessIssuePayload,
+    RecommendationPayload,
     ReconciliationBucket,
     ReconciliationResultPayload,
     TablePayload,
@@ -372,6 +373,15 @@ class BundleView:
 
     def columns_by_id_get(self, artifact_id: str) -> ColumnPayload | None:
         return self._columns_by_id.get(artifact_id)
+
+    # -- recommendation (M8) ---------------------------------------------
+    def recommendation(self) -> RecommendationPayload | None:
+        """The single strategy recommendation for this bundle, if any."""
+        recs = cast(
+            list[RecommendationPayload],
+            iter_artifacts(self.bundle_root, ArtifactType.RECOMMENDATION),
+        )
+        return recs[0] if recs else None
 
     def result_for_key(self, key: str) -> ReconciliationResultPayload | None:
         return self._results_by_key.get(key)
