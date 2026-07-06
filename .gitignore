@@ -30,9 +30,11 @@ venv/
 bundle/
 bundle_*/
 # ...but the `dla.bundle` source package must always be tracked (the rule above
-# otherwise matches it by directory name).
+# otherwise matches it by directory name). Track the dir + its .py sources only —
+# never the __pycache__ that the broad `**` negation would have re-included.
 !apps/dla/src/dla/bundle/
-!apps/dla/src/dla/bundle/**
+!apps/dla/src/dla/bundle/*.py
+apps/dla/src/dla/bundle/**/__pycache__/
 
 # Node / web UI build artifacts
 node_modules/

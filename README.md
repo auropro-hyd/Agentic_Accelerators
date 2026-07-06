@@ -14,6 +14,27 @@ Architecture docs: `wiki/`. Consuming a package from another project: see `docs/
 Conventional commits with package scopes (`feat(core): …`, `fix(dla): …`) — releases
 are automated per package via python-semantic-release (`core-vX.Y.Z` tags).
 
+## Developer tasks
+
+A root `Makefile` wraps the common workflows (it exports `PYTHONPATH` so the
+workspace imports cleanly on every platform). Run `make help` for the full list:
+
+```bash
+make install     # uv sync --all-packages
+make lint        # ruff check .
+make typecheck   # mypy (strict) on libs
+make test        # full suite: libs (100% cov) + apps/dla + scripts
+make ci          # mirror the CI `checks` job locally (lint + typecheck + test + licenses)
+make run  ARGS="discover -c <cfg>"   # any dla subcommand
+make ui   ARGS="-c <cfg>"            # SME review web UI
+make clean       # remove generated bundles + caches
+```
+
+The Data Layer Accelerator's own command reference, quickstarts, and bundle
+layout live in [`apps/dla/README.md`](apps/dla/README.md); the operator runbook
+is [`docs/operator-guide.md`](docs/operator-guide.md) and the published hand-off
+contract is [`docs/bundle-contract.md`](docs/bundle-contract.md).
+
 ## Testing
 
 Each package owns its own `tests/` directory co-located with its source. `apps/dla` additionally
