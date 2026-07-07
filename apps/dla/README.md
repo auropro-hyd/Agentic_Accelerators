@@ -164,6 +164,24 @@ is the substrate that makes safe, repeatable re-runs possible.
 
 ---
 
+## Where the bundle goes (downstream)
+
+`dla` is **Layer 1** of an 8-layer accelerator stack. Its output — the `bundle/`
+directory, the `recommendation/` artifact, and the published
+`config/schemas/bundle-schema.json` — is the hand-off to **Layer 2, the Knowledge
+Representation Assembler**, which uses the recommended strategy to build what the
+agents query:
+
+- `recommend` → `plain_schema` → straight relational modeling
+- `recommend` → `vector` → a vector/semantic store over the free-text fields
+- `recommend` → `knowledge_graph` → a graph over the bundle's entities + relationships
+
+Everything is JSON, self-describing via `artifact_type`, and provenance-tagged so
+a downstream consumer can tell discovered fact from AI draft from human-authored
+truth. The machine-readable contract is `docs/bundle-contract.md`.
+
+---
+
 ## Prerequisites
 
 - Python 3.11 or newer
