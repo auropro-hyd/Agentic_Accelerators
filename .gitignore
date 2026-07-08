@@ -19,6 +19,9 @@ specs/
 # Editor/agent integration — may contain credentials per upstream guidance.
 .cursor/
 
+# Local credentials — real key values live only here, never in tracked files.
+.env
+
 # Python
 __pycache__/
 *.py[cod]
