@@ -449,10 +449,35 @@ each step, so a failed or interrupted run can be resumed.
 `dla recommend` then reads the whole bundle and picks a downstream
 retrieval strategy — `plain_schema`, `vector`, or `knowledge_graph`. The
 decision is **deterministic**: no model sits in the decision path, so the
-same bundle always yields the same recommendation. `dla bundle
-export-schema` publishes the machine-readable JSON Schema from the
-in-process models, and `dla bundle validate` checks every artifact against
-the contract.
+same bundle always yields the same recommendation. Scoring is point-based
+over bundle signals; the key ones (all serialized into the artifact's
+`signals_detected`):
+
+- **`rel_density`** — relationships per **connected** table (a table
+  participating in ≥ 1 relationship). Dividing by all tables let
+  distractor/no-FK tables dilute the graph signal on wide warehouses.
+- **`junction_count`** — junction/bridge tables. At/above
+  `recommender_graph_junction_count` (default 2) it is graph evidence; at/
+  above `recommender_graph_junction_rich` (default 4) the schema is
+  *junction-rich* and `knowledge_graph` earns a dominance bonus that can
+  out-rank even maximal free-text evidence (max scores: knowledge_graph 9,
+  vector 6, plain_schema 4).
+- **`text_field_count` / `avg_text_length`** — free-text (prose-like)
+  columns, detected from profiles. **`unprofiled_string_columns`** reports
+  how many string columns had no usable profile — a high value means the
+  text signal may be understated.
+- **`coverage_pct`** — SME review coverage; low or absent coverage reduces
+  the confidence (FR-023).
+
+Ties are broken by explicit precedence toward the simpler-to-operate
+strategy — `plain_schema` > `vector` > `knowledge_graph` — and the artifact's
+`reasoning` says so whenever precedence (not points) decided. All thresholds
+live under `thresholds:` in `config/default.yaml` and are overridable
+per engagement.
+
+`dla bundle export-schema` publishes the machine-readable JSON Schema from
+the in-process models, and `dla bundle validate` checks every artifact
+against the contract.
 
 ```bash
 # Offline pipeline: discover .. recommend .. validate
@@ -755,6 +780,24 @@ Browser end-to-end tests under `tests/ui/` use the `ui` marker and are
 skipped automatically unless a browser is installed; run them
 explicitly with `uv run pytest -m ui`.
 
+### Live-database e2e (Wave 8)
+
+`tests/e2e/` drives the real CLI as a subprocess against a live Postgres
+fixture container: full `dla run`, manifest↔disk parity, a zero-diff
+idempotency re-run, seeded readiness ground truth, the exit-code contract,
+and recommender routing. The suite is opt-in via `DLA_E2E_FIXTURE=small`
+(15-table fixture, port 55432) or `=large` (125-table fixture, port 55433)
+and is skipped otherwise, so plain `make test` needs no Docker. From the
+repo root:
+
+```bash
+make e2e-small   # brings the container up, then runs the suite
+make e2e-large
+```
+
+CI runs both fixtures on every PR (the `e2e` job in
+`.github/workflows/ci.yml`).
+
 ### Linting and formatting
 
 ```bash
@@ -762,6 +805,14 @@ uv run ruff check .
 ```
 
 ### Proving idempotency end-to-end
+
+Automated: `make e2e-small` / `make e2e-large` include a zero-diff re-run
+test (`tests/e2e/test_postgres_pipeline.py::test_rerun_is_zero_diff`) —
+every artifact file must be byte-identical with an untouched mtime after a
+second `dla run` against an unchanged source. Sample reads carry a
+deterministic `ORDER BY` (PK, else `ctid`; D19) so profile stats cannot
+drift with Postgres scan order. To check by hand (macOS `stat -f`; on
+Linux use `stat -c "%Y %n"`):
 
 ```bash
 find bundle -type f -exec stat -f "%m %N" {} \; | sort > /tmp/before.txt
@@ -785,7 +836,7 @@ diff /tmp/before.txt /tmp/after.txt && echo "IDEMPOTENT"
 | `uv sync` hangs                                          | Network                                                             | `UV_HTTP_TIMEOUT=120 uv sync` and/or retry                                                                                       |
 | Bundle re-run produces diffs                             | Source genuinely changed, or someone hand-edited a bundle file      | Verify nothing in `bundle/` was edited externally; check that the source has not changed                                         |
 | `dla profile` reports many columns as `unprofiled`       | The connection user lacks SELECT on those tables, or types unsupported | Grant the discovery role `SELECT` on each table; check `bundle/profiles/*.json` for `error_reason`                              |
-| Readiness counts differ by ±1 between two runs           | Sampling-order dependence for tiny tables                           | Acceptable for fixtures. Headline counts (Critical / Warning / Info totals) are stable; minor numeric details may drift by one. |
+| Readiness counts differ by ±1 between two runs           | Source changed between runs (sampling itself is deterministic since D19: samples are ordered by PK/`ctid`) | Verify the source is unchanged; if it reproduces on a frozen source, file it — the e2e suite gates on zero-diff re-runs. |
 
 ---
 

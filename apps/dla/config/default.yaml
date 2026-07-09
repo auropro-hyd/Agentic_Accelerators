@@ -67,3 +67,17 @@ thresholds:
   # the most informative columns are kept and the rest are summarised as a
   # name-only list.
   describe_table_column_cap: 60
+
+  # Strategy recommender (M8, recalibrated in W7/D4). Deterministic scoring —
+  # no LLM (FR-018). rel_density is relationships per *connected* table
+  # (tables participating in >= 1 relationship), so distractor/no-FK tables
+  # cannot dilute the graph signal. `junction_rich` marks heavy many-to-many
+  # structure: at/above it, knowledge_graph earns a dominance bonus that can
+  # out-rank even maximal free-text evidence. Ties break toward the simpler
+  # strategy: plain_schema > vector > knowledge_graph.
+  recommender_min_coverage: 0.5
+  recommender_text_field_count: 3
+  recommender_text_avg_length: 200
+  recommender_graph_junction_count: 2
+  recommender_graph_junction_rich: 4
+  recommender_graph_rel_density: 1.5

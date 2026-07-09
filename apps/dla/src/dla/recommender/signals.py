@@ -19,6 +19,7 @@ from dla.bundle.schema import (
     PatternPayload,
     PatternType,
     ProfilePayload,
+    ProfileStatus,
     RelationshipPayload,
 )
 from dla.config.models import ThresholdsConfig
@@ -37,11 +38,20 @@ class RecommenderSignals:
     table_count: int
     column_count: int
     relationship_count: int
-    rel_density: float  # relationships per table
+    rel_density: float
+    """Relationships per *connected* table (a table participating in at least
+    one relationship). Dividing by all tables let distractor/no-FK tables
+    dilute the signal — a junction-rich schema inside a wide warehouse read
+    as sparse (D4). 0.0 when nothing is connected."""
+    connected_table_count: int = 0
     pattern_summary: dict[str, int] = field(default_factory=dict)
     junction_count: int = 0
     text_field_count: int = 0
     avg_text_length: float = 0.0
+    unprofiled_string_column_count: int = 0
+    """String columns with no usable profile. Free-text detection needs
+    sampled values, so these columns cannot contribute to the vector signal —
+    a high count means `text_field_count` may be understated (D4)."""
     kpi_count: int = 0
     coverage_pct: float | None = None
     """Confirmed / total across reviewable artifacts — or **None when nothing
@@ -54,10 +64,12 @@ class RecommenderSignals:
             "schema_size": {"tables": self.table_count, "columns": self.column_count},
             "relationship_count": self.relationship_count,
             "rel_density": round(self.rel_density, 3),
+            "connected_table_count": self.connected_table_count,
             "pattern_summary": dict(self.pattern_summary),
             "junction_count": self.junction_count,
             "text_field_count": self.text_field_count,
             "avg_text_length": round(self.avg_text_length, 1),
+            "unprofiled_string_columns": self.unprofiled_string_column_count,
             "kpi_count": self.kpi_count,
             "coverage_pct": round(self.coverage_pct, 3) if self.coverage_pct is not None else None,
             "coverage_state": "reviewed" if self.coverage_pct is not None else "no_reviewable_artifacts",
@@ -105,7 +117,17 @@ def extract_signals(bundle_root: Path, thresholds: ThresholdsConfig) -> Recommen
 
     table_count = len(tables)
     rel_count = len(relationships)
-    rel_density = rel_count / table_count if table_count else 0.0
+
+    # Density over *connected* tables only (D4): a relationship endpoint ref
+    # is `column:<table>:<column>`, so the table is the middle segment.
+    connected_tables: set[str] = set()
+    for rel in relationships:
+        for ref in (rel.from_column_ref, rel.to_column_ref):
+            parts = ref.split(":", 2)
+            if len(parts) == 3:
+                connected_tables.add(parts[1])
+    connected_table_count = len(connected_tables)
+    rel_density = rel_count / connected_table_count if connected_table_count else 0.0
 
     pattern_summary: dict[str, int] = {}
     junction_count = 0
@@ -117,8 +139,14 @@ def extract_signals(bundle_root: Path, thresholds: ThresholdsConfig) -> Recommen
 
     text_field_count = 0
     text_lengths: list[float] = []
+    unprofiled_string_column_count = 0
     for col in columns:
-        is_text, avg_len = _is_free_text(col, profiles.get(col.artifact_id), top_n=thresholds.top_n_values)
+        profile = profiles.get(col.artifact_id)
+        if col.normalized_type == NormalizedType.STRING and (
+            profile is None or profile.profile_status != ProfileStatus.PROFILED
+        ):
+            unprofiled_string_column_count += 1
+        is_text, avg_len = _is_free_text(col, profile, top_n=thresholds.top_n_values)
         if is_text:
             text_field_count += 1
             text_lengths.append(avg_len)
@@ -133,10 +161,12 @@ def extract_signals(bundle_root: Path, thresholds: ThresholdsConfig) -> Recommen
         column_count=len(columns),
         relationship_count=rel_count,
         rel_density=rel_density,
+        connected_table_count=connected_table_count,
         pattern_summary=pattern_summary,
         junction_count=junction_count,
         text_field_count=text_field_count,
         avg_text_length=avg_text_length,
+        unprofiled_string_column_count=unprofiled_string_column_count,
         kpi_count=len(kpis),
         coverage_pct=coverage_pct,
     )

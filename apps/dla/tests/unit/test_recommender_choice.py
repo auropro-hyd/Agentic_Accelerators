@@ -1,7 +1,14 @@
 """M8 SC-006 / T178 — recommender choice eval over hand-labeled fixtures.
 
-Ten labeled bundle scenarios (4 plain_schema, 3 vector, 3 knowledge_graph); the
-deterministic recommender must land the correct strategy on at least 8 of 10.
+Twelve labeled bundle scenarios (5 plain_schema, 3 vector, 4 knowledge_graph);
+the deterministic recommender must land the correct strategy on at least 10 of
+12 (SC-006's >= 80%). Two scenarios were added by the W7/D4 recalibration and
+are also asserted individually (regressions, not statistics):
+`kg_junction_rich_with_text` reproduces the large fixture's shape — a
+junction-rich schema plus prose columns and no-FK distractor tables must route
+to knowledge_graph; `plain_isolated_distractors` guards the connected-table
+density change against degenerate two-table "density".
+
 The recommender takes no LLM (FR-018), so this is a fast, CI-gated unit eval
 rather than a model-dependent one — hence it lives in tests/unit, not tests/eval.
 """
@@ -180,6 +187,57 @@ def _kg_dense(b: Path) -> None:
     detect_patterns(b, source_id="s")
 
 
+def _kg_junction_rich_with_text(b: Path) -> None:
+    """W7/D4 regression — the large fixture's shape in miniature: a
+    junction-rich core (5 bridges >= the junction-rich bar of 4), prose
+    columns strong enough to max the vector score, and no-FK distractor
+    tables that used to dilute rel_density. knowledge_graph must win."""
+    for t in ("users", "orders", "products", "tags", "roles", "groups"):
+        _tbl(b, f"public.{t}", ["id", "name"])
+    bridges = [
+        ("order_tags", "order_id", "orders", "tag_id", "tags"),
+        ("user_roles", "user_id", "users", "role_id", "roles"),
+        ("product_tags", "product_id", "products", "tag_id", "tags"),
+        ("group_members", "user_id", "users", "group_id", "groups"),
+        ("user_tags", "user_id", "users", "tag_id", "tags"),
+    ]
+    for name, ca, ta, cb, tb in bridges:
+        _tbl(b, f"public.{name}", [ca, cb])
+        _fk(b, f"public.{name}", ca, f"public.{ta}", "id")
+        _fk(b, f"public.{name}", cb, f"public.{tb}", "id")
+    # Prose columns that max the vector score (>= 3 fields, avg >= 200 chars).
+    _tbl(b, "public.reviews", ["id", "review_text", "pros", "cons"])
+    long_prose = " ".join([_PROSE] * 3)
+    for c in ("review_text", "pros", "cons"):
+        col_ref = f"column:public.reviews:{c}"
+        write_artifact(
+            b,
+            ProfilePayload(
+                artifact_id=f"profile:{col_ref.split(':', 1)[1]}", provenance=Provenance.DISCOVERED,
+                column_ref=col_ref, mode=ProfileMode.SAMPLING, sample_size=50, null_count=0,
+                null_rate=0.0, distinct_count=49, profile_status=ProfileStatus.PROFILED,
+                sample_values=[long_prose for _ in range(5)], **_C),
+            body="p",
+        )
+    # No-FK distractor tables (a staging-like schema) — must not dilute density.
+    for t in ("stg_a", "stg_b", "stg_c", "stg_d", "stg_e", "stg_f", "stg_g", "stg_h"):
+        _tbl(b, f"staging.{t}", ["id", "code"])
+    detect_patterns(b, source_id="s")
+
+
+def _plain_isolated_distractors(b: Path) -> None:
+    """W7/D4 guard — connected-table density must not misread a mostly
+    isolated schema: two tables sharing several relationships (composite-FK
+    style) is degenerate "density", not a graph domain."""
+    _tbl(b, "public.ledger", ["fiscal_year", "fiscal_month", "account_id"])
+    _tbl(b, "public.periods", ["fiscal_year", "fiscal_month", "period_id"])
+    _fk(b, "public.ledger", "fiscal_year", "public.periods", "fiscal_year")
+    _fk(b, "public.ledger", "fiscal_month", "public.periods", "fiscal_month")
+    _fk(b, "public.ledger", "account_id", "public.periods", "period_id")
+    for i in range(10):
+        _tbl(b, f"public.iso_{i}", ["id", "code", "amount"])
+
+
 _SCENARIOS: list[tuple[str, Callable[[Path], None], Strategy]] = [
     ("plain_tiny", _plain_tiny, Strategy.PLAIN_SCHEMA),
     ("plain_structured", _plain_structured, Strategy.PLAIN_SCHEMA),
@@ -191,11 +249,13 @@ _SCENARIOS: list[tuple[str, Callable[[Path], None], Strategy]] = [
     ("kg_three_bridges", _kg_three_bridges, Strategy.KNOWLEDGE_GRAPH),
     ("kg_social", _kg_social, Strategy.KNOWLEDGE_GRAPH),
     ("kg_dense", _kg_dense, Strategy.KNOWLEDGE_GRAPH),
+    ("kg_junction_rich_with_text", _kg_junction_rich_with_text, Strategy.KNOWLEDGE_GRAPH),
+    ("plain_isolated_distractors", _plain_isolated_distractors, Strategy.PLAIN_SCHEMA),
 ]
 
 
 def test_recommender_choice_meets_sc006(tmp_path: Path) -> None:
-    """SC-006: correct strategy on >= 8 of 10 hand-labeled fixtures."""
+    """SC-006: correct strategy on >= 10 of 12 hand-labeled fixtures (>= 80%)."""
     correct = 0
     misses: list[str] = []
     for name, build, expected in _SCENARIOS:
@@ -207,7 +267,28 @@ def test_recommender_choice_meets_sc006(tmp_path: Path) -> None:
             correct += 1
         else:
             misses.append(f"{name}: expected {expected.value}, got {rec.recommended_strategy.value}")
-    assert correct >= 8, f"SC-006 not met: only {correct}/10 correct. Misses: {misses}"
+    assert correct >= 10, f"SC-006 not met: only {correct}/12 correct. Misses: {misses}"
+
+
+def test_junction_rich_schema_beats_text_saturation(tmp_path: Path) -> None:
+    """D4 regression (must-pass, not statistical): heavy many-to-many structure
+    out-ranks maxed-out text evidence, and distractor tables cannot dilute it."""
+    _kg_junction_rich_with_text(tmp_path)
+    rec = recommend(tmp_path, source_id="s", thresholds=_TH)
+    assert rec.recommended_strategy == Strategy.KNOWLEDGE_GRAPH, rec.reasoning
+    sd = rec.signals_detected
+    assert isinstance(sd["connected_table_count"], int)
+    # Distractors excluded: 11 connected tables (6 entities + 5 bridges).
+    assert sd["connected_table_count"] == 11
+    assert sd["junction_count"] >= 4  # type: ignore[operator]
+
+
+def test_isolated_distractors_stay_plain(tmp_path: Path) -> None:
+    """D4 guard (must-pass): two tables sharing several relationships is
+    degenerate density — a mostly isolated schema stays plain_schema."""
+    _plain_isolated_distractors(tmp_path)
+    rec = recommend(tmp_path, source_id="s", thresholds=_TH)
+    assert rec.recommended_strategy == Strategy.PLAIN_SCHEMA, rec.reasoning
 
 
 def test_recommender_choice_is_deterministic_across_fixtures(tmp_path: Path) -> None:

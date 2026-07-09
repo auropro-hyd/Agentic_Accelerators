@@ -60,6 +60,20 @@ licenses: ## License denylist gate (allowlist gate runs in CI)
 
 ci: lint typecheck test ## Mirror the CI `checks` job locally
 
+# --- live-database e2e (Wave 8; brings the fixture container up first) ------
+E2E_SMALL_COMPOSE := apps/dla/tests/fixtures/postgres/docker-compose.yaml
+E2E_LARGE_COMPOSE := apps/dla/tests/fixtures/postgres_large/docker-compose.yaml
+
+e2e-small: ## Full-pipeline e2e against the 15-table fixture (needs Docker)
+	docker compose -f $(E2E_SMALL_COMPOSE) up -d --wait
+	DLA_E2E_FIXTURE=small DLA_DB_PASSWORD=dla_dev_password uv run pytest apps/dla/tests/e2e -q
+
+e2e-large: ## Full-pipeline e2e against the 125-table fixture (needs Docker)
+	docker compose -f $(E2E_LARGE_COMPOSE) up -d --wait
+	DLA_E2E_FIXTURE=large DLA_DB_PASSWORD=dla_dev_password uv run pytest apps/dla/tests/e2e -q
+
+e2e: e2e-small e2e-large ## Both live-DB e2e suites
+
 # --- demo / pipeline (pass CONFIG=<path>; add LLM=1 to enable AI steps) -----
 pipeline: ## Full pipeline: make pipeline CONFIG=<cfg> [LLM=1]
 	$(DLA) run -c $(CONFIG) $(if $(LLM),--llm,)
