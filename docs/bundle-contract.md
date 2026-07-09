@@ -135,8 +135,8 @@ decision path (FR-018), so the same bundle always yields the same recommendation
 |-------|-------|
 | `recommended_strategy` | `plain_schema` / `vector` / `knowledge_graph`. |
 | `strategy_confidence` | `high` / `medium` / `low`. |
-| `reasoning` | Plain-language explanation of the choice. |
-| `signals_detected` | `{schema_size, pattern_summary, text_field_count, rel_density, coverage_pct, coverage_state, kpi_count, …}`. `coverage_pct` is **null** (with `coverage_state: no_reviewable_artifacts`) when nothing is reviewable yet — an empty reviewable set is never reported as full coverage. |
+| `reasoning` | Plain-language explanation of the choice. States explicitly when a points tie was broken by precedence (simpler strategy wins: `plain_schema` > `vector` > `knowledge_graph`). |
+| `signals_detected` | `{schema_size, relationship_count, rel_density, connected_table_count, pattern_summary, junction_count, text_field_count, avg_text_length, unprofiled_string_columns, kpi_count, coverage_pct, coverage_state}`. `rel_density` is relationships per **connected** table — a table participating in ≥ 1 relationship — so distractor/no-FK tables cannot dilute the graph signal (W7/D4); `connected_table_count` is that denominator. `unprofiled_string_columns` counts string columns with no usable profile (free-text detection needs sampled values, so a high count means the vector signal may be understated). `coverage_pct` is **null** (with `coverage_state: no_reviewable_artifacts`) when nothing is reviewable yet — an empty reviewable set is never reported as full coverage. |
 | `alternatives_considered` | `[{strategy, why_not}]` for the two not chosen. |
 | `coverage_warning` | Set when low review coverage reduced confidence (FR-023) — including on a fresh bundle with zero reviewed artifacts. |
 | `override` | `{chosen_strategy, override_reason, overridden_by, overridden_at}` when an SME overrides. |

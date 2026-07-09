@@ -3,6 +3,20 @@
 Date: 2026-07-09 · Branch: `chore/makefile-cross-platform` (isolated worktree)
 Environment: macOS, Python 3.11, uv workspace, Docker postgres:16-alpine
 
+> **Resolution status (2026-07 L1 hardening — all resolved).** This report is
+> the point-in-time record of the first full run; every defect below was fixed
+> in the 8-wave hardening that followed: D1/D1b/D16/D17 → Wave 1 (manifest
+> correctness), D2/D18 → Wave 2 (profiling robustness), D3/D6/D7 → Wave 3
+> (pipeline UX / exit codes), D5/D8 + FR-007 → Wave 4 (readiness signals),
+> D9–D13 → Wave 5 (inference & detectors), D14/D15 + FR-011 → Wave 6 (LLM
+> polish), D4 → Wave 7 (recommender recalibration: rel_density over connected
+> tables, junction-rich dominance bonus, explicit tie-break — this fixture now
+> routes to `knowledge_graph`), and Wave 8 added the per-PR live-DB e2e suite
+> (`apps/dla/tests/e2e/`) over both fixtures. A 19th defect found during the
+> combined verification — sample reads used `LIMIT` without `ORDER BY`, so
+> scan order could drift between runs (D19) — was fixed alongside Waves 7–8
+> (deterministic PK/`ctid` ordering in every sampling path).
+
 ## 1. Fixture summary
 
 New fixture at `apps/dla/tests/fixtures/postgres_large/` (compose + 8 seed files +

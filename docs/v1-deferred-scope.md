@@ -21,7 +21,7 @@ than the plan, deliberately).
 
 | Item | Spec anchor | Why / status |
 |------|-------------|--------------|
-| **Real-database / end-to-end integration tests** | SC-001/002/009/012 | A Postgres compose + seed exists, but tests run against hand-seeded in-memory bundles. The full `dla run` against a live Postgres (and the <30s discovery / <2min profile / <10min pipeline perf numbers) is not yet exercised in CI. Highest-value hardening item. |
+| **Real-database / end-to-end integration tests** | SC-001/002/009/012 | **Done (L1 hardening, Wave 8).** `apps/dla/tests/e2e/` drives the real CLI against both live fixtures (15-table and 125-table): full `dla run`, manifest↔disk parity, zero-diff idempotency re-run (deterministic sampling ORDER BY, D19), seeded readiness ground truth, exit-code contract, recommender routing. Runs per-PR in CI (`e2e` job, both fixtures) and locally via `make e2e-small` / `make e2e-large`; perf sanity bounds included. |
 | **Description-quality eval (LLM-as-judge)** | SC-003 / FR-026 / Constitution VII | Reconciliation and glossary-extractor evals exist; the description eval (20 goldens, judge ≥4/5 on ≥70%) does not. The flagship AI output currently ships without its measurement gate. |
 | **`INSUFFICIENT_SIGNAL` for descriptions** | FR-011 / US 3.2 | **Resolved (2026-07, L1 hardening Wave 6).** Previously implemented for the glossary generator only — descriptions never emitted the sentinel (tracked gap). The `column_v2`/`table_v2` prompt templates now instruct the model to return the exact string `INSUFFICIENT_SIGNAL` when grounding is too thin (no profile evidence, near-zero distinct values, no relationships, generic name — same LLM-judged threshold discipline as the glossary prompt). The describe engine stores such drafts with `Weak` confidence, counts them in the describe report (`insufficient_signal`, mirroring `GlossaryReport`), and the review queue flags them as needing SME input. |
 | **`type_mismatch` readiness check** | FR-007 | **Done (L1 hardening, Wave 4).** A relationship whose endpoint columns have mismatched normalized types now raises a `type_mismatch` Warning (`readiness/checks.py::check_type_mismatch`). |
@@ -51,7 +51,10 @@ M1–M8 all demo real code; the bundle writer (atomicity + provenance state
 machine), connectors (Postgres/CSV), profiling, describe idempotency + SME
 preservation, reconciliation, glossary, the four patterns, KPI workbook,
 coverage, prior-bundle import, term-mapping precedence, the **deterministic
-strategy recommender (now with a 10-fixture SC-006 eval)**, the published +
-version-pinned bundle contract, and the resumable `dla run` orchestrator are all
-implemented and unit-tested. The deficit above is concentrated in real-DB/e2e
-proof, two eval gates, and contract-doc reconciliation.
+strategy recommender (recalibrated in the 2026-07 hardening — connected-table
+density, junction-rich dominance, explicit tie-break — with a 12-fixture
+SC-006 eval)**, the published + version-pinned bundle contract, and the
+resumable `dla run` orchestrator are all implemented and unit-tested, and
+since Wave 8 the full pipeline is exercised per-PR against both live Postgres
+fixtures. The remaining deficit is the description-quality LLM-judge eval and
+contract-doc reconciliation.
