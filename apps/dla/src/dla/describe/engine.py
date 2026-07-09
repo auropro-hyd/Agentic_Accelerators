@@ -44,10 +44,9 @@ from auropro_llm.gateway import (
 
 from dla.bundle.layout import paths_for
 from dla.bundle.provenance import Provenance, preserves_sme_work
-from dla.bundle.reader import iter_artifacts, load_json_artifact, load_manifest
+from dla.bundle.reader import iter_artifacts, load_json_artifact
 from dla.bundle.schema import (
     ArtifactType,
-    BundleManifest,
     ColumnPayload,
     Confidence,
     CreatedBy,
@@ -57,7 +56,7 @@ from dla.bundle.schema import (
     SourcePayload,
     TablePayload,
 )
-from dla.bundle.writer import WriteResult, write_artifact, write_manifest
+from dla.bundle.writer import WriteResult, refresh_manifest_counts, write_artifact
 from dla.glossary.feedback_loop import confirmed_glossary_for_name
 from dla.prompts.registry import render
 
@@ -709,6 +708,7 @@ def describe_column(
         provenance=Provenance.AI_DRAFTED,
     )
     wr = write_description(bundle_root, payload, force=force)
+    refresh_manifest_counts(bundle_root, source_id=source_id)
     return DescribeResult(
         target_kind="column",
         target_ref=column_ref,
@@ -767,6 +767,7 @@ def describe_table(
         provenance=Provenance.AI_DRAFTED,
     )
     wr = write_description(bundle_root, payload, force=force)
+    refresh_manifest_counts(bundle_root, source_id=source_id)
     return DescribeResult(
         target_kind="table",
         target_ref=table_ref,
@@ -884,26 +885,13 @@ def describe_all(
 
 
 def _refresh_description_count_in_manifest(bundle_root: Path, source_id: str) -> None:
-    """Update `bundle.json` so the manifest reflects the description count on disk.
+    """Refresh `bundle.json` so the manifest reflects the artifact counts on disk.
 
-    Discovery owns the schema-artifact counts; describe is responsible for
-    keeping the `description` count in sync. If no manifest exists yet
-    (describe ran before discover, which shouldn't happen but is harmless),
-    seed one.
+    Delegates to the shared `refresh_manifest_counts` (D16): every writing
+    command recounts all artifact types from disk; the manifest is rewritten
+    (and `last_run_at` moves) only when the counts actually changed.
     """
-    descriptions = iter_artifacts(bundle_root, ArtifactType.DESCRIPTION)
-    manifest = load_manifest(bundle_root)
-    if manifest is None:
-        manifest = BundleManifest(
-            source_id=source_id,
-            last_run_at=_now_utc(),
-            bundle_root=str(bundle_root),
-        )
-    counts = dict(manifest.artifact_counts)
-    counts[ArtifactType.DESCRIPTION.value] = len(descriptions)
-    manifest.artifact_counts = counts
-    manifest.last_run_at = _now_utc()
-    write_manifest(bundle_root, manifest)
+    refresh_manifest_counts(bundle_root, source_id=source_id)
 
 
 # ----------------------------------------------------------------------------

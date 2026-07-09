@@ -22,7 +22,7 @@ from dla.bundle.schema import (
     RelationshipPayload,
 )
 from dla.config.models import ThresholdsConfig
-from dla.coverage import compute_coverage
+from dla.coverage import compute_overall_coverage
 
 # Patterns that indicate a highly interconnected, entity-rich schema — the
 # hallmark of a graph-shaped domain.
@@ -43,7 +43,11 @@ class RecommenderSignals:
     text_field_count: int = 0
     avg_text_length: float = 0.0
     kpi_count: int = 0
-    coverage_pct: float = 1.0
+    coverage_pct: float | None = None
+    """Confirmed / total across reviewable artifacts — or **None when nothing
+    is reviewable yet** (D17). An empty reviewable set must not read as full
+    coverage, or FR-023's confidence reduction could never fire on a fresh
+    bundle."""
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -55,7 +59,8 @@ class RecommenderSignals:
             "text_field_count": self.text_field_count,
             "avg_text_length": round(self.avg_text_length, 1),
             "kpi_count": self.kpi_count,
-            "coverage_pct": round(self.coverage_pct, 3),
+            "coverage_pct": round(self.coverage_pct, 3) if self.coverage_pct is not None else None,
+            "coverage_state": "reviewed" if self.coverage_pct is not None else "no_reviewable_artifacts",
         }
 
 
@@ -120,10 +125,8 @@ def extract_signals(bundle_root: Path, thresholds: ThresholdsConfig) -> Recommen
     avg_text_length = sum(text_lengths) / len(text_lengths) if text_lengths else 0.0
 
     # Overall review coverage across all reviewable types (confirmed / total).
-    stats = compute_coverage(bundle_root)
-    total = sum(s.total for s in stats)
-    confirmed = sum(s.confirmed for s in stats)
-    coverage_pct = confirmed / total if total else 1.0
+    # None when nothing is reviewable yet — never 1.0 for an empty set (D17).
+    coverage_pct = compute_overall_coverage(bundle_root).pct
 
     return RecommenderSignals(
         table_count=table_count,

@@ -18,7 +18,7 @@ from typing import Any, cast
 from dla.bundle.provenance import Provenance
 from dla.bundle.reader import iter_artifacts
 from dla.bundle.schema import ArtifactType, CreatedBy, PatternKind, TermMappingRulePayload
-from dla.bundle.writer import write_artifact
+from dla.bundle.writer import refresh_manifest_counts, write_artifact
 
 
 def _name_of(ref: str) -> str:
@@ -92,6 +92,7 @@ def save_rule(
         precedence=precedence,
     )
     write_artifact(bundle_root, rule, body=f"`{pattern}` → {target_glossary_term}", force=True)
+    refresh_manifest_counts(bundle_root, source_id=source_id)
     return rule
 
 
@@ -105,4 +106,6 @@ def delete_rule(bundle_root: Path, rule_id: str) -> bool:
         if p.exists():
             p.unlink()
             removed = True
+    if removed:
+        refresh_manifest_counts(bundle_root)
     return removed

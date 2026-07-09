@@ -37,11 +37,35 @@ class CoverageStat:
 
     @property
     def pct(self) -> float:
-        return self.confirmed / self.total if self.total else 1.0
+        # An empty reviewable set is 0% reviewed, never 100% (D17).
+        return self.confirmed / self.total if self.total else 0.0
 
     @property
     def pct_display(self) -> int:
         return round(100 * self.pct)
+
+
+@dataclass(frozen=True)
+class OverallCoverage:
+    """Review coverage aggregated across every tracked artifact type.
+
+    Distinguishes "nothing reviewable yet" (`total == 0`, `pct is None`) from
+    genuine coverage — an empty reviewable set must never read as 100% (D17),
+    or the recommender's low-coverage confidence reduction (FR-023) could
+    never trigger on a fresh bundle.
+    """
+
+    total: int
+    confirmed: int
+
+    @property
+    def has_reviewable(self) -> bool:
+        return self.total > 0
+
+    @property
+    def pct(self) -> float | None:
+        """Confirmed fraction, or None when there is nothing reviewable yet."""
+        return self.confirmed / self.total if self.total else None
 
 
 def compute_coverage(bundle_root: Path) -> list[CoverageStat]:
@@ -54,3 +78,12 @@ def compute_coverage(bundle_root: Path) -> list[CoverageStat]:
         confirmed = sum(1 for a in arts if a.provenance in _CONFIRMED)
         stats.append(CoverageStat(artifact_type=str(at), total=len(arts), confirmed=confirmed))
     return stats
+
+
+def compute_overall_coverage(bundle_root: Path) -> OverallCoverage:
+    """Aggregate confirmed/total across all tracked artifact types."""
+    stats = compute_coverage(bundle_root)
+    return OverallCoverage(
+        total=sum(s.total for s in stats),
+        confirmed=sum(s.confirmed for s in stats),
+    )

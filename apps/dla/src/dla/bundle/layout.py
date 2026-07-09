@@ -78,6 +78,26 @@ def manifest_path(bundle_root: Path) -> Path:
     return bundle_root / MANIFEST_FILENAME
 
 
+def count_artifacts_on_disk(bundle_root: Path) -> dict[str, int]:
+    """Count the `.json` artifacts on disk, per artifact type.
+
+    This is the single source of truth for `bundle.json.artifact_counts` and
+    for the validator's manifest↔disk parity check — both must count the same
+    way or they would disagree with each other. Every `ArtifactType` gets an
+    entry (zero when the type has no artifacts yet).
+    """
+    counts: dict[str, int] = {}
+    for at in ArtifactType:
+        if at is ArtifactType.SOURCE:
+            counts[at.value] = int((bundle_root / "source.json").exists())
+            continue
+        directory = directory_for(bundle_root, at)
+        counts[at.value] = (
+            sum(1 for _ in directory.rglob("*.json")) if directory.exists() else 0
+        )
+    return counts
+
+
 def ensure_layout(bundle_root: Path) -> None:
     """Create all standard subdirectories under `bundle_root`.
 

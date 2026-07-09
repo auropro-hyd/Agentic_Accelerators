@@ -16,7 +16,7 @@ from json import JSONDecodeError, loads
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from dla.bundle.layout import directory_for
+from dla.bundle.layout import count_artifacts_on_disk, directory_for
 from dla.bundle.reader import load_json_artifact, load_manifest
 from dla.bundle.schema import (
     ArtifactType,
@@ -119,6 +119,37 @@ def _safe_iter(bundle_root: Path, artifact_type: ArtifactType) -> list[CommonFie
     return out
 
 
+def _validate_manifest_counts(bundle_root: Path) -> list[Finding]:
+    """Manifest↔disk parity (D1b): every count the manifest declares must match
+    the actual number of artifacts on disk.
+
+    A mismatch is a **warning** (so normal validation reports it and `--strict`
+    fails it): the manifest is the L2 hand-off's index, and a manifest that
+    lies about counts ships a silently-wrong contract.
+    """
+    try:
+        manifest = load_manifest(bundle_root)
+    except Exception:
+        return []  # malformed manifest is reported by the schema/completeness checks
+    if manifest is None:
+        return []
+    disk = count_artifacts_on_disk(bundle_root)
+    findings: list[Finding] = []
+    for artifact_type, declared in sorted(manifest.artifact_counts.items()):
+        actual = disk.get(artifact_type, 0)
+        if declared != actual:
+            findings.append(
+                Finding(
+                    "warning",
+                    "manifest_count_mismatch",
+                    f"manifest declares {declared} {artifact_type} artifact(s) "
+                    f"but {actual} found on disk",
+                    location="bundle.json",
+                )
+            )
+    return findings
+
+
 def _validate_completeness(bundle_root: Path) -> list[Finding]:
     findings: list[Finding] = []
 
@@ -201,7 +232,11 @@ def validate_bundle(bundle_root: Path) -> ValidationReport:
         return ValidationReport(
             [Finding("error", "no_bundle", f"bundle directory {bundle_root} does not exist")]
         )
-    findings = _validate_schema(bundle_root) + _validate_completeness(bundle_root)
+    findings = (
+        _validate_schema(bundle_root)
+        + _validate_completeness(bundle_root)
+        + _validate_manifest_counts(bundle_root)
+    )
     # Stable order: errors first, then by code + location.
     findings.sort(key=lambda f: (f.level != "error", f.code, f.location))
     return ValidationReport(findings)

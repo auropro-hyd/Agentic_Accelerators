@@ -16,7 +16,7 @@ from dla.bundle.schema import (
     HierarchyLevel,
     HierarchyPayload,
 )
-from dla.bundle.writer import write_artifact
+from dla.bundle.writer import refresh_manifest_counts, write_artifact
 
 _SLUG_RE = re.compile(r"[^a-z0-9_]+")
 
@@ -109,4 +109,5 @@ def save_hierarchy(
         f"Drill-down: {' → '.join(level.name for level in normalized)}"
     )
     write_artifact(bundle_root, payload, body=body, force=True)
+    refresh_manifest_counts(bundle_root, source_id=source_id)
     return payload

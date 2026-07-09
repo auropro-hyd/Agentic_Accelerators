@@ -41,6 +41,20 @@ bundle/
 └── .run_state.json             # orchestrator step state (resume support)
 ```
 
+### Manifest (`bundle.json`)
+
+| Field | Notes |
+|-------|-------|
+| `schema_version` | The bundle contract version (matches `bundle-schema.json`). |
+| `source_id` | The engagement's source. |
+| `artifact_counts` | One entry per artifact type — **all** types, zero when absent. Recounted from disk by **every** writing command (discover, profile, readiness, describe, glossary, patterns, kpi, hierarchy, import, reconcile, recommend), so the counts always equal what a consumer will find on disk. |
+| `last_run_at` | Moves only when the manifest's content (the counts) actually changed. A re-run that produces no artifact changes leaves `bundle.json` byte-identical — the zero-diff idempotency guarantee covers the manifest too. |
+| `bundle_root` | Path the bundle was written to. |
+
+`dla bundle validate` checks manifest↔disk parity: any declared count that does
+not match the number of artifacts on disk is reported as a
+`manifest_count_mismatch` **warning** (fails under `--strict`).
+
 ## Common fields (every artifact)
 
 | Field | Notes |
@@ -111,9 +125,9 @@ decision path (FR-018), so the same bundle always yields the same recommendation
 | `recommended_strategy` | `plain_schema` / `vector` / `knowledge_graph`. |
 | `strategy_confidence` | `high` / `medium` / `low`. |
 | `reasoning` | Plain-language explanation of the choice. |
-| `signals_detected` | `{schema_size, pattern_summary, text_field_count, rel_density, coverage_pct, kpi_count, …}`. |
+| `signals_detected` | `{schema_size, pattern_summary, text_field_count, rel_density, coverage_pct, coverage_state, kpi_count, …}`. `coverage_pct` is **null** (with `coverage_state: no_reviewable_artifacts`) when nothing is reviewable yet — an empty reviewable set is never reported as full coverage. |
 | `alternatives_considered` | `[{strategy, why_not}]` for the two not chosen. |
-| `coverage_warning` | Set when low review coverage reduced confidence (FR-023). |
+| `coverage_warning` | Set when low review coverage reduced confidence (FR-023) — including on a fresh bundle with zero reviewed artifacts. |
 | `override` | `{chosen_strategy, override_reason, overridden_by, overridden_at}` when an SME overrides. |
 
 The strategy is the hand-off signal to the layers above L1:
@@ -130,6 +144,6 @@ dla bundle validate -c <config> --strict   # warnings fail too
 
 `validate` reports **errors** (malformed artifact, KPI referencing a missing
 table, missing manifest — exit code 4) and **warnings** (undescribed table, no
-recommendation yet). It is a security gate as much as a quality gate: an artifact
+recommendation yet, manifest count not matching disk). It is a security gate as much as a quality gate: an artifact
 that does not match the contract — e.g. a value injected through a grounding
 signal — never ships.

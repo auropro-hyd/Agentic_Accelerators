@@ -19,7 +19,7 @@ from dla.bundle.schema import (
     ProfileStatus,
     TablePayload,
 )
-from dla.bundle.writer import now_utc, write_artifact
+from dla.bundle.writer import now_utc, refresh_manifest_counts, write_artifact
 from dla.config.models import Config
 from dla.connectors.base import SourceConnector
 from dla.profiling.samplers import FullScanSampler, Sampler, SamplingSampler
@@ -174,4 +174,5 @@ def profile(
         finally:
             connector.close()
 
+    refresh_manifest_counts(bundle_root, source_id=cfg.source.source_id)
     return report

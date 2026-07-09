@@ -12,7 +12,7 @@ from pathlib import Path
 
 from dla.bundle.provenance import Provenance
 from dla.bundle.schema import CreatedBy, RecommendationPayload, Strategy
-from dla.bundle.writer import now_utc, write_artifact
+from dla.bundle.writer import now_utc, refresh_manifest_counts, write_artifact
 from dla.config.models import ThresholdsConfig
 from dla.recommender.engine import (
     _readiness_header,
@@ -71,4 +71,5 @@ def apply_override(
     header = _readiness_header(bundle_root, signals.coverage_pct)
     body = _render_body(updated, header, signals)
     write_artifact(bundle_root, updated, body=body, force=True)
+    refresh_manifest_counts(bundle_root, source_id=source_id)
     return updated

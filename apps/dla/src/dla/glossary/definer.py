@@ -20,7 +20,7 @@ from dla.bundle.layout import paths_for
 from dla.bundle.provenance import Provenance, preserves_sme_work
 from dla.bundle.reader import load_json_artifact
 from dla.bundle.schema import ArtifactType, CreatedBy, GlossaryEntryPayload
-from dla.bundle.writer import write_artifact
+from dla.bundle.writer import refresh_manifest_counts, write_artifact
 from dla.describe.engine import _confidence_from_label, _request_with_mock, parse_response
 from dla.glossary.extractor import TermUsage
 from dla.prompts.registry import render
@@ -125,4 +125,5 @@ def define_terms(
         report.terms.append(term.term)
         if definition == "INSUFFICIENT_SIGNAL":
             report.insufficient_signal += 1
+    refresh_manifest_counts(bundle_root, source_id=source_id)
     return report
