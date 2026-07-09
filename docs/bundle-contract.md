@@ -28,10 +28,13 @@ bundle/
 ├── readiness/
 │   ├── readiness.md            # human summary
 │   └── issues/                 # one file per data-quality issue
-├── descriptions/{tables,columns}/   # AI-drafted / SME-edited prose
+├── descriptions/               # AI-drafted / SME-edited prose, flat files
+│                               #   (`table.<name>.*` / `column.<name>.*` stems)
 ├── glossary/                   # recurring business terms
 ├── patterns/                   # detected star/snowflake/junction/audit shapes
 ├── kpi/                        # SME-authored KPI workbook entries
+├── hierarchies/                # SME-authored dimension drill-down hierarchies
+├── coverage/                   # reserved; coverage is computed on demand (may be empty)
 ├── term_mappings/              # SME term-mapping rules (outrank fuzzy matching)
 ├── imports/{artifacts,reconciliation}/   # client-doc import + reconciliation
 ├── recommendation/             # the strategy recommendation (one per run)
@@ -74,9 +77,29 @@ are **preserved** — a re-run never clobbers human work.
 
 `source`, `table`, `column`, `relationship`, `index`, `profile`,
 `readiness_issue`, `description`, `glossary_entry`, `pattern`, `kpi`,
-`imported_artifact`, `reconciliation_result`, `term_mapping_rule`,
-`recommendation`. Field-level detail for each is in the generated JSON Schema
-(`$defs`).
+`hierarchy`, `imported_artifact`, `reconciliation_result`,
+`term_mapping_rule`, `recommendation`. Field-level detail for each is in the
+generated JSON Schema (`$defs`).
+
+> **Normativity note:** the generated `bundle-schema.json` is the normative
+> contract — it is exported from the in-process models and cannot drift from
+> the code. This document is the human-readable companion; where the two ever
+> disagree, the JSON Schema wins.
+
+### KPI dimensions and hierarchies
+
+Downstream consumers (the knowledge-representation layer) enumerate
+"metric × dimension" menus and drill-down paths from two artifacts:
+
+| Artifact | Fields that matter downstream |
+|-------|-------|
+| `kpi` | `dimensions` (labels as the SME entered them) and `dimension_refs` (the resolved `column:` artifact ids — every entry validated to exist; a conceptual dimension saved with `--skip-dimension-validation` has a label but no ref). |
+| `hierarchy` | `levels` — ordered **coarsest → finest** (`year → quarter → month`), each level `{name, column_ref}` with the column validated to exist. Optional `dimension` names the logical dimension it belongs to. SME-authored via `dla hierarchy add`. |
+
+`dla bundle validate` reports a KPI `dimension_ref` or hierarchy level that
+points at a missing column as an **error** (`kpi_missing_dimension_column`,
+`hierarchy_missing_column`) — a downstream consumer must never be offered a
+phantom dimension.
 
 ### Recommendation (M8)
 

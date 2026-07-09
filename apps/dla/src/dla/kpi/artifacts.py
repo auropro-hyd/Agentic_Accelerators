@@ -11,7 +11,7 @@ from dla.bundle.provenance import Provenance
 from dla.bundle.reader import load_json_artifact
 from dla.bundle.schema import ArtifactType, CreatedBy, FormulaKind, KpiPayload
 from dla.bundle.writer import WriteResult, write_artifact
-from dla.kpi.workbook import normalize_table_ref, validate_source_tables
+from dla.kpi.workbook import normalize_table_ref, resolve_dimensions, validate_source_tables
 
 _SLUG_RE = re.compile(r"[^a-z0-9_]+")
 
@@ -43,11 +43,22 @@ def save_kpi(
     dimensions: list[str] | None = None,
     sme_name: str | None = None,
     validate: bool = True,
+    validate_dimensions: bool = True,
 ) -> KpiPayload:
-    """Validate (source tables exist) and write a KPI artifact. Raises KpiValidationError."""
+    """Validate (source tables exist, dimensions resolve to columns) and write
+    a KPI artifact. Raises KpiValidationError / DimensionValidationError.
+
+    `validate_dimensions=False` records the dimensions as given without
+    resolving them (for conceptual dimensions with no physical column yet);
+    `dimension_refs` is then left empty.
+    """
     refs = [normalize_table_ref(r) for r in source_table_refs if r.strip()]
+    dims = [d.strip() for d in (dimensions or []) if d.strip()]
+    dimension_refs: list[str] = []
     if validate:
         validate_source_tables(bundle_root, refs)
+        if validate_dimensions and dims:
+            dimension_refs = resolve_dimensions(bundle_root, dims, refs)
     now = datetime.now(UTC)
     existing = load_kpi(bundle_root, name)
     payload = KpiPayload(
@@ -63,7 +74,8 @@ def save_kpi(
         formula=formula,
         formula_kind=FormulaKind(formula_kind),
         grain=grain,
-        dimensions=list(dimensions or []),
+        dimensions=dims,
+        dimension_refs=dimension_refs,
         source_table_refs=refs,
         owner=owner,
     )

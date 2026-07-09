@@ -34,6 +34,7 @@ class ArtifactType(StrEnum):
     GLOSSARY_ENTRY = "glossary_entry"
     PATTERN = "pattern"
     KPI = "kpi"
+    HIERARCHY = "hierarchy"
     IMPORTED_ARTIFACT = "imported_artifact"
     RECONCILIATION_RESULT = "reconciliation_result"
     TERM_MAPPING_RULE = "term_mapping_rule"
@@ -319,7 +320,17 @@ class PatternKind(StrEnum):
 
 
 class KpiPayload(CommonFields):
-    """One KPI defined in the workbook (§E8). SME-authored in v1."""
+    """One KPI defined in the workbook (§E8). SME-authored in v1.
+
+    `dimensions` holds the dimension labels exactly as the SME entered them
+    (e.g. `region`, `public.customers.region`). `dimension_refs` holds the
+    corresponding resolved `column:` artifact ids for every dimension that was
+    validated against the discovered schema — this is what downstream
+    consumers (the knowledge-representation layer) enumerate to offer
+    "metric by dimension" menus without guessing. A dimension deliberately
+    saved unvalidated (conceptual, e.g. `fiscal_period`) appears in
+    `dimensions` but has no entry in `dimension_refs`.
+    """
 
     artifact_type: Literal[ArtifactType.KPI] = ArtifactType.KPI
     name: str
@@ -328,9 +339,36 @@ class KpiPayload(CommonFields):
     formula_kind: FormulaKind
     grain: str
     dimensions: list[str] = Field(default_factory=list)
+    dimension_refs: list[str] = Field(default_factory=list)
     source_table_refs: list[str] = Field(default_factory=list)
     owner: str
     re_confirmation_required: bool = False
+
+
+class HierarchyLevel(BaseModel):
+    """One level of a dimension hierarchy: a label plus the column it maps to."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    column_ref: str = Field(min_length=1)
+    """`column:` artifact id, validated against the discovered schema on save."""
+
+
+class HierarchyPayload(CommonFields):
+    """A dimension drill-down hierarchy (SME-authored).
+
+    Levels are ordered **coarsest to finest** (e.g. year → quarter → month).
+    Downstream consumers use hierarchies to offer drill-down paths
+    ("executive summary → specific point") without inventing them.
+    """
+
+    artifact_type: Literal[ArtifactType.HIERARCHY] = ArtifactType.HIERARCHY
+    name: str
+    dimension: str | None = None
+    """Logical dimension this hierarchy belongs to (e.g. `date`, `geography`)."""
+    description: str | None = None
+    levels: list[HierarchyLevel] = Field(min_length=2)
 
 
 class TermMappingRulePayload(CommonFields):

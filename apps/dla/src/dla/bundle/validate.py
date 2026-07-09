@@ -18,7 +18,13 @@ from typing import Any, Literal, cast
 
 from dla.bundle.layout import directory_for
 from dla.bundle.reader import load_json_artifact, load_manifest
-from dla.bundle.schema import ArtifactType, CommonFields, KpiPayload, TablePayload
+from dla.bundle.schema import (
+    ArtifactType,
+    CommonFields,
+    HierarchyPayload,
+    KpiPayload,
+    TablePayload,
+)
 
 Level = Literal["error", "warning"]
 
@@ -35,6 +41,7 @@ _SCANNED_TYPES: tuple[ArtifactType, ...] = (
     ArtifactType.GLOSSARY_ENTRY,
     ArtifactType.PATTERN,
     ArtifactType.KPI,
+    ArtifactType.HIERARCHY,
     ArtifactType.IMPORTED_ARTIFACT,
     ArtifactType.RECONCILIATION_RESULT,
     ArtifactType.TERM_MAPPING_RULE,
@@ -122,6 +129,7 @@ def _validate_completeness(bundle_root: Path) -> list[Finding]:
 
     tables = cast(list[TablePayload], _safe_iter(bundle_root, ArtifactType.TABLE))
     table_ids = {t.artifact_id for t in tables}
+    column_ids = {c.artifact_id for c in _safe_iter(bundle_root, ArtifactType.COLUMN)}
 
     # KPI source tables must exist (error — a KPI over a phantom table is broken).
     for kpi in cast(list[KpiPayload], _safe_iter(bundle_root, ArtifactType.KPI)):
@@ -133,6 +141,32 @@ def _validate_completeness(bundle_root: Path) -> list[Finding]:
                         "kpi_missing_table",
                         f"KPI {kpi.name!r} references missing table {ref!r}",
                         location=kpi.artifact_id,
+                    )
+                )
+        # Resolved dimension refs must point at real columns (error — a
+        # downstream consumer enumerating them would offer phantom dimensions).
+        for ref in kpi.dimension_refs:
+            if ref not in column_ids:
+                findings.append(
+                    Finding(
+                        "error",
+                        "kpi_missing_dimension_column",
+                        f"KPI {kpi.name!r} dimension references missing column {ref!r}",
+                        location=kpi.artifact_id,
+                    )
+                )
+
+    # Hierarchy levels must map to real columns (error — same phantom risk).
+    for hierarchy in cast(list[HierarchyPayload], _safe_iter(bundle_root, ArtifactType.HIERARCHY)):
+        for level in hierarchy.levels:
+            if level.column_ref not in column_ids:
+                findings.append(
+                    Finding(
+                        "error",
+                        "hierarchy_missing_column",
+                        f"hierarchy {hierarchy.name!r} level {level.name!r} "
+                        f"references missing column {level.column_ref!r}",
+                        location=hierarchy.artifact_id,
                     )
                 )
 

@@ -8,8 +8,13 @@
 
 Source tables are validated to exist in the bundle; a KPI referencing a
 missing table is rejected (exit 4) with the offending table(s) listed.
+Dimensions are likewise resolved to discovered columns (accepted forms:
+`region`, `public.customers.region`, `column:public.customers:region`) and a
+dimension that is missing or ambiguous is rejected (exit 4) — pass
+`--skip-dimension-validation` to record conceptual dimensions that have no
+physical column yet.
 
-Exit codes: 0 success · 1 generic · 3 config/usage · 4 source table not found.
+Exit codes: 0 success · 1 generic · 3 config/usage · 4 reference not found.
 """
 
 from __future__ import annotations
@@ -22,7 +27,7 @@ from auropro_core.logging import configure_logging, get_logger
 
 from dla.config.loader import ConfigError, load_config
 from dla.kpi.artifacts import save_kpi
-from dla.kpi.workbook import KpiValidationError
+from dla.kpi.workbook import DimensionValidationError, KpiValidationError
 
 app = typer.Typer(help="Define KPIs in the workbook.")
 _log = get_logger("dla.cli.kpi")
@@ -51,6 +56,13 @@ def add(
     dimensions: Annotated[
         str, typer.Option("--dimensions", help="Comma-separated dimensions to slice by.")
     ] = "",
+    skip_dimension_validation: Annotated[
+        bool,
+        typer.Option(
+            "--skip-dimension-validation",
+            help="Record dimensions as given without resolving them to columns.",
+        ),
+    ] = False,
 ) -> None:
     """Add (or update) a KPI in the workbook."""
     parent = ctx.obj if isinstance(ctx.obj, dict) else {}
@@ -73,8 +85,9 @@ def add(
             bundle_root=bundle_root, source_id=cfg.source.source_id, name=name,
             business_definition=definition, formula=formula, formula_kind=formula_kind,
             grain=grain, owner=owner, source_table_refs=refs, dimensions=dims,
+            validate_dimensions=not skip_dimension_validation,
         )
-    except KpiValidationError as exc:
+    except (KpiValidationError, DimensionValidationError) as exc:
         typer.secho(f"kpi-validation: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=4) from exc
     except ValueError as exc:
@@ -86,4 +99,8 @@ def add(
     typer.echo(typer.style("KPI added.", fg=typer.colors.GREEN, bold=True))
     typer.echo(f"  name:          {kpi.name}")
     typer.echo(f"  source tables: {', '.join(kpi.source_table_refs)}")
+    if kpi.dimension_refs:
+        typer.echo(f"  dimensions:    {', '.join(kpi.dimension_refs)}")
+    elif kpi.dimensions:
+        typer.echo(f"  dimensions:    {', '.join(kpi.dimensions)} (not validated)")
     typer.echo(f"  owner:         {kpi.owner}")

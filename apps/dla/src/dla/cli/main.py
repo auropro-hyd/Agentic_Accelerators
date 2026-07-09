@@ -73,6 +73,7 @@ from dla.cli import coverage as _coverage  # noqa: E402
 from dla.cli import describe as _describe  # noqa: E402
 from dla.cli import discover as _discover  # noqa: E402
 from dla.cli import glossary as _glossary  # noqa: E402
+from dla.cli import hierarchy as _hierarchy  # noqa: E402
 from dla.cli import importer as _importer  # noqa: E402
 from dla.cli import kpi as _kpi  # noqa: E402
 from dla.cli import patterns as _patterns  # noqa: E402
@@ -93,6 +94,7 @@ app.add_typer(_reconcile.app, name="reconcile")
 app.add_typer(_glossary.app, name="glossary")
 app.add_typer(_patterns.app, name="patterns")
 app.add_typer(_kpi.app, name="kpi")
+app.add_typer(_hierarchy.app, name="hierarchy")
 app.add_typer(_coverage.app, name="coverage")
 app.add_typer(_recommend.app, name="recommend")
 app.add_typer(_bundle.app, name="bundle")
