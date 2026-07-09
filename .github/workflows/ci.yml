@@ -50,6 +50,37 @@ jobs:
           uv run pip-licenses --allow-only="MIT License;Apache Software License;BSD License;ISC License (ISCL);Python Software Foundation License;The Unlicense (Unlicense);BSD-3-Clause;BSD-2-Clause;Apache-2.0;MIT;Apache License 2.0;PSF-2.0;Apache-2.0 AND MIT;Apache-2.0 AND CNRI-Python;Apache-2.0 OR BSD-2-Clause;Apache Software License; BSD License;Apache Software License; MIT License;MIT OR Apache-2.0;BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0" --ignore-packages $IGNORE
         shell: bash
 
+  # Wave 8 — the full pipeline against a real Postgres (both committed
+  # fixtures), per PR: manifest==disk, zero-diff idempotency re-run, seeded
+  # readiness ground truth, exit-code contract, recommender routing.
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - fixture: small
+            compose: apps/dla/tests/fixtures/postgres/docker-compose.yaml
+          - fixture: large
+            compose: apps/dla/tests/fixtures/postgres_large/docker-compose.yaml
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          python-version: "3.11"
+      - name: Sync workspace
+        run: uv sync --all-packages --locked
+      - name: Start Postgres fixture (${{ matrix.fixture }})
+        run: docker compose -f ${{ matrix.compose }} up -d --wait --wait-timeout 120
+      - name: E2E (${{ matrix.fixture }} fixture)
+        env:
+          DLA_E2E_FIXTURE: ${{ matrix.fixture }}
+          DLA_DB_PASSWORD: dla_dev_password
+        run: cd apps/dla && uv run pytest tests/e2e -q
+      - name: Fixture logs (on failure)
+        if: failure()
+        run: docker compose -f ${{ matrix.compose }} logs --tail 100
+
   osv-scan:
     runs-on: ubuntu-latest
     steps:

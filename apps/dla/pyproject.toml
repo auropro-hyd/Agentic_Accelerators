@@ -90,6 +90,7 @@ markers = [
     "eval: LLM-as-judge eval tests (slow, model-dependent)",
     "integration: integration tests requiring external services (Docker)",
     "ui: Playwright-driven web UI tests",
+    "e2e: live-database end-to-end tests (opt-in via DLA_E2E_FIXTURE=small|large)",
 ]
 filterwarnings = [
     "error",
