@@ -10,14 +10,25 @@ be resumed with `--from-step` after a failure.
 from __future__ import annotations
 
 from dla.orchestrator.recovery import plan_steps
-from dla.orchestrator.runner import STEP_ORDER, RunResult, StepContext, run_pipeline
+from dla.orchestrator.runner import (
+    STEP_ORDER,
+    PipelineError,
+    PipelineInterrupted,
+    RunResult,
+    StepContext,
+    StepSummary,
+    run_pipeline,
+)
 from dla.orchestrator.state import RunState, load_state, save_state
 
 __all__ = [
     "STEP_ORDER",
+    "PipelineError",
+    "PipelineInterrupted",
     "RunResult",
     "RunState",
     "StepContext",
+    "StepSummary",
     "load_state",
     "plan_steps",
     "run_pipeline",

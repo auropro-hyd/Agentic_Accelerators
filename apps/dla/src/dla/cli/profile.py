@@ -13,7 +13,7 @@ from dla.config.loader import ConfigError, load_config
 from dla.connectors.base import ConnectionError as ConnectorConnectionError
 from dla.connectors.csv_folder import build as build_csv_folder
 from dla.connectors.postgres import build as build_postgres
-from dla.profiling.engine import profile
+from dla.profiling.engine import TableNotFoundError, profile
 
 app = typer.Typer(help="Profile every column in the bundle.")
 
@@ -83,7 +83,11 @@ def profile_cmd(
         )
         raise typer.Exit(code=3) from exc
 
-    connector = _build_connector(cfg.source.provider, cfg.source.connection())
+    try:
+        connector = _build_connector(cfg.source.provider, cfg.source.connection())
+    except ConfigError as exc:
+        typer.secho(f"error: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=3) from exc
     try:
         report = profile(
             cfg=cfg,
@@ -95,6 +99,9 @@ def profile_cmd(
     except ConnectorConnectionError as exc:
         typer.secho(f"connection error: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=2) from exc
+    except TableNotFoundError as exc:
+        typer.secho(f"table-not-found: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=4) from exc
     except Exception as exc:
         typer.secho(f"profile failed: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from exc

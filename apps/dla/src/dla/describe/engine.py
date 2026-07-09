@@ -111,9 +111,13 @@ class DescribeResult:
     response: LLMResponse | None = None
 
 
+_MAX_REPORTED_ERRORS = 5
+"""How many per-artifact failure messages `DescribeReport.errors` retains."""
+
+
 @dataclass(frozen=True)
 class DescribeReport:
-    """What `describe_all` returns. Counts only — per-artifact details live in logs."""
+    """What `describe_all` returns. Counts, plus a capped sample of failure messages."""
 
     columns_drafted: int = 0
     tables_drafted: int = 0
@@ -121,6 +125,13 @@ class DescribeReport:
     skipped_sme_preserved: int = 0
     failed: int = 0
     sme_edits_committed: int = 0
+    errors: list[str] = field(default_factory=list)
+    """First few per-artifact failure messages (capped at `_MAX_REPORTED_ERRORS`)."""
+
+    @property
+    def drafted(self) -> int:
+        """Total artifacts drafted (tables + columns)."""
+        return self.columns_drafted + self.tables_drafted
 
 
 # ----------------------------------------------------------------------------
@@ -827,6 +838,13 @@ def describe_all(
     skipped_idempotent = 0
     skipped_sme_preserved = 0
     failed = 0
+    errors: list[str] = []
+
+    def _record_failure(target_ref: str, exc: Exception) -> None:
+        nonlocal failed
+        failed += 1
+        if len(errors) < _MAX_REPORTED_ERRORS:
+            errors.append(f"{target_ref}: {exc}")
 
     for table in tables:
         try:
@@ -840,8 +858,8 @@ def describe_all(
                 force=force,
                 mock_response=mock_response,
             )
-        except Exception:
-            failed += 1
+        except Exception as exc:
+            _record_failure(table.artifact_id, exc)
             continue
         if result.skipped_reason == "idempotent":
             skipped_idempotent += 1
@@ -862,8 +880,8 @@ def describe_all(
                 force=force,
                 mock_response=mock_response,
             )
-        except Exception:
-            failed += 1
+        except Exception as exc:
+            _record_failure(column.artifact_id, exc)
             continue
         if result.skipped_reason == "idempotent":
             skipped_idempotent += 1
@@ -880,6 +898,7 @@ def describe_all(
         skipped_idempotent=skipped_idempotent,
         skipped_sme_preserved=skipped_sme_preserved,
         failed=failed,
+        errors=errors,
     )
 
 

@@ -64,7 +64,11 @@ def discover_cmd(
     output_root = bundle_dir or cfg.runtime.bundle_dir
     output_root = Path(output_root).resolve()
 
-    connector = _build_connector(cfg.source.provider, cfg.source.connection())
+    try:
+        connector = _build_connector(cfg.source.provider, cfg.source.connection())
+    except ConfigError as exc:
+        typer.secho(f"error: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=3) from exc
     try:
         report = discover(
             cfg=cfg, connector=connector, bundle_root=output_root, dry_run=dry_run

@@ -19,7 +19,7 @@ import typer
 from auropro_core.logging import configure_logging, get_logger
 from auropro_llm.gateway import LLMGatewayError, build_gateway
 
-from dla.config.loader import ConfigError, load_config
+from dla.config.loader import ConfigError, load_config, require_llm_api_key
 from dla.glossary.definer import define_terms
 from dla.glossary.extractor import extract_terms
 
@@ -81,6 +81,13 @@ def build(
         typer.secho(f"error: --mode must be 'live' or 'dry-run'; got {mode!r}.", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=3)
 
+    # Fail fast (exit 3) when the provider needs an API key that is unset —
+    # before any LLM call is attempted (D6).
+    try:
+        require_llm_api_key(cfg.llm)
+    except ConfigError as exc:
+        typer.secho(f"error: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=3) from exc
     gateway = build_gateway(cfg.llm, dry_run=False)
     model = f"{cfg.llm.provider}/{cfg.llm.model}"
     try:

@@ -34,7 +34,7 @@ import typer
 from auropro_core.logging import configure_logging, get_logger
 from auropro_llm.gateway import LLMGatewayError, build_gateway
 
-from dla.config.loader import ConfigError, load_config
+from dla.config.loader import ConfigError, load_config, require_llm_api_key
 from dla.describe.engine import (
     ArtifactNotFoundError,
     LLMResponseParseError,
@@ -204,10 +204,17 @@ def describe_cmd(
         )
         return
 
-    # Live path.
+    # Live path. Fail fast (exit 3) when the provider needs an API key that
+    # is unset — before any LLM call is attempted (D6).
+    try:
+        require_llm_api_key(cfg.llm)
+    except ConfigError as exc:
+        typer.secho(f"error: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=3) from exc
     gateway = build_gateway(cfg.llm, dry_run=False)
     source_id = cfg.source.source_id
 
+    error_detail = ""
     try:
         # describe-one-column
         if column is not None:
@@ -245,6 +252,7 @@ def describe_cmd(
                 report.skipped_sme_preserved,
                 report.failed,
             )
+            error_detail = "; ".join(report.errors)
         else:
             # describe-all
             report = describe_all(
@@ -264,6 +272,7 @@ def describe_cmd(
                 report.skipped_sme_preserved,
                 report.failed,
             )
+            error_detail = "; ".join(report.errors)
     except ArtifactNotFoundError as exc:
         typer.secho(f"artifact-not-found: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=4) from exc
@@ -281,6 +290,17 @@ def describe_cmd(
         raise typer.Exit(code=1) from exc
 
     cols_drafted, tbls_drafted, idem, sme_p, fail = results_summary
+    if fail and cols_drafted + tbls_drafted == 0:
+        # Every attempted draft failed (e.g. provider unreachable) — this is
+        # a failed run, not a quiet success.
+        typer.secho(
+            f"describe failed: all {fail} attempted draft(s) failed — no descriptions "
+            f"were written (is the LLM provider reachable?)."
+            + (f" First error(s): {error_detail}" if error_detail else ""),
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=1)
     typer.echo("")
     typer.echo(typer.style("Describe complete.", fg=typer.colors.GREEN, bold=True))
     typer.echo(f"  bundle:                 {bundle_root}")
