@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "DLA bundle artifact",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "$defs": {
     "ArtifactType": {
       "description": "Every bundle artifact's `artifact_type` value.",
@@ -2295,6 +2295,18 @@
           },
           "title": "Signals",
           "type": "array"
+        },
+        "composite_group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Composite Group"
         }
       },
       "required": [

@@ -4,7 +4,21 @@
 
 thresholds:
   name_match_min_score: 0.85
+  # Relationship inference — value-overlap evidence (D10/D11).
+  # A computed overlap ratio >= value_overlap_min_ratio passes; <=
+  # value_overlap_failed_max_ratio is negative evidence (demotes the inferred
+  # relationship to Weak, recorded as `value_overlap_failed`); in between is
+  # inconclusive (neutral). An overlap that could not be computed is neutral.
   value_overlap_min_ratio: 0.5
+  value_overlap_failed_max_ratio: 0.05
+  # A passing overlap only *upgrades* confidence when it is selective:
+  # at least value_overlap_min_distinct distinct FK-side sample values, and
+  # the overlapped values must not form a dense integer surrogate range
+  # bounded by value_overlap_dense_int_max (serial ids 1..N overlap any other
+  # small serial column by construction). Non-selective overlaps are recorded
+  # as `value_overlap_low_selectivity` and stay neutral.
+  value_overlap_min_distinct: 10
+  value_overlap_dense_int_max: 100
   high_null_rate: 0.5
   high_null_rate_critical: 0.9
   sample_budget_rows: 10000

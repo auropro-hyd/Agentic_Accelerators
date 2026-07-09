@@ -100,6 +100,17 @@ generated JSON Schema (`$defs`).
 > the code. This document is the human-readable companion; where the two ever
 > disagree, the JSON Schema wins.
 
+### Relationships
+
+One artifact per column pair, at `schema/relationships/`.
+
+| Field | Notes |
+|-------|-------|
+| `from_column_ref` / `to_column_ref` | The joined `column:` artifact ids. |
+| `relationship_type` | `declared_fk` (from source metadata) / `inferred_fk` / `inferred_join_key`. |
+| `signals` | Evidence taxonomy: `declared_fk`, `name_match`, `type_match`, `value_overlap` (computed and selective — corroborates), `value_overlap_low_selectivity` (computed, ratio passed, but the overlapped values are a dense small-integer surrogate range or a tiny sample — recorded for audit, does **not** upgrade confidence), `value_overlap_failed` (computed ≈ 0 — negative evidence, the relationship is demoted to `Weak`). An overlap that could not be computed at all records nothing. Thresholds are configurable (`thresholds.value_overlap_*`). |
+| `composite_group` | **Additive since schema 1.1.0**, default `null`. A multi-column (composite) FK — e.g. `ledger(fiscal_year, fiscal_month) → fiscal_periods(fiscal_year, fiscal_month)` — is persisted as one relationship artifact per column pair; every pair of the same constraint carries the same deterministic group id (`fkgroup:<from_table>:<constraint_name>`). Consumers reassemble the composite join by grouping on it; joining on a single member of a group in isolation is incorrect. `null` on ordinary single-column relationships and on bundles written before 1.1.0 — those bundles remain valid. |
+
 ### KPI dimensions and hierarchies
 
 Downstream consumers (the knowledge-representation layer) enumerate

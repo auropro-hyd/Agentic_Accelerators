@@ -29,6 +29,7 @@ from dla.connectors.base import (
     IntrospectionResult,
     RawColumn,
     RawIndex,
+    RawRelationship,
     RawTable,
     SourceConnector,
 )
@@ -156,11 +157,52 @@ def _column_body(table: RawTable, col: RawColumn) -> str:
     )
 
 
-def _relationship_body(rel_id: str, confidence: str, signals: list[str]) -> str:
-    return (
+def _relationship_body(
+    rel_id: str, confidence: str, signals: list[str], composite_group: str | None = None
+) -> str:
+    body = (
         f"# {rel_id}\n\n"
         f"Confidence: **{confidence}**. Signals: {', '.join(signals) or '(none)'}.\n"
     )
+    if composite_group:
+        body += f"Part of composite foreign key `{composite_group}`.\n"
+    return body
+
+
+def _rel_key(rel: RawRelationship) -> tuple[str, str, str, str]:
+    return (rel.from_table, rel.from_column, rel.to_table, rel.to_column)
+
+
+def _composite_groups(
+    rels: list[RawRelationship],
+) -> dict[tuple[str, str, str, str], str]:
+    """Map relationship key -> composite-group id for every declared
+    relationship that is one column pair of a multi-column FK (D13).
+
+    Column pairs belong to the same composite FK when they share a source
+    table, target table, and constraint name (a SQL composite FK is one named
+    constraint, so its per-column halves arrive with an identical `name`).
+    The group id is deterministic — `fkgroup:<from_table>:<constraint_name>`
+    — so re-runs always produce the same id (idempotency, FR-016; the sorted
+    column set would work equally, the constraint name is simply more
+    readable). Relationships without a
+    constraint name are never grouped: without the name two independent
+    single-column FKs onto the same table would be indistinguishable from a
+    composite, and inventing a composite would be worse than flattening one.
+    """
+    by_constraint: dict[tuple[str, str, str], list[RawRelationship]] = {}
+    for rel in rels:
+        if rel.name:
+            by_constraint.setdefault((rel.from_table, rel.to_table, rel.name), []).append(rel)
+
+    groups: dict[tuple[str, str, str, str], str] = {}
+    for (from_table, _to_table, name), members in by_constraint.items():
+        if len(members) < 2:
+            continue  # single-column FK — no compositeness to preserve
+        group_id = f"fkgroup:{from_table}:{name}"
+        for m in members:
+            groups[_rel_key(m)] = group_id
+    return groups
 
 
 def _index_body(index: RawIndex) -> str:
@@ -241,12 +283,15 @@ def discover(
                     else:
                         report.columns_written += 1
 
-        # Declared FKs.
+        # Declared FKs. Multi-column FKs arrive as one RawRelationship per
+        # column pair; `composite_group` re-links the pairs (D13).
+        composite_groups = _composite_groups(intro.declared_relationships)
         for rel in intro.declared_relationships:
             rel_id = _relationship_artifact_id(
                 cfg.source.source_id, rel.from_table, rel.from_column, rel.to_table, rel.to_column
             )
             tag = tag_declared()
+            composite_group = composite_groups.get(_rel_key(rel))
             payload = RelationshipPayload(
                 artifact_id=rel_id,
                 source_id=cfg.source.source_id,
@@ -259,8 +304,13 @@ def discover(
                 to_column_ref=_column_artifact_id(cfg.source.source_id, rel.to_table, rel.to_column),
                 relationship_type="declared_fk",
                 signals=tag.signals,
+                composite_group=composite_group,
             )
-            res = write_artifact(bundle_root, payload, body=_relationship_body(rel_id, tag.confidence, tag.signals))
+            res = write_artifact(
+                bundle_root,
+                payload,
+                body=_relationship_body(rel_id, tag.confidence, tag.signals, composite_group),
+            )
             report.write_results.append(res)
             if not res.skipped_to_preserve_sme:
                 report.relationships_written += 1
