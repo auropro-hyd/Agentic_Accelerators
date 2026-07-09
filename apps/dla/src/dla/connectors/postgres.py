@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import os
+import zlib
 from typing import Any
 
-from sqlalchemy import Engine, MetaData, Table, create_engine, select
+from sqlalchemy import Engine, MetaData, Table, create_engine, func, select, tablesample, text
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -212,6 +213,42 @@ class PostgresConnector:
                 return [row[0] for row in conn.execute(stmt)]
         except SQLAlchemyError:
             return []
+
+    def sample_with_nulls_random(
+        self, table: str, column: str, n: int, total_rows: int
+    ) -> list[Any] | None:
+        """Spread-out sample via `TABLESAMPLE SYSTEM ... REPEATABLE (seed)`.
+
+        Reduces head-bias (D18): a plain `LIMIT n` returns the first `n` rows
+        in physical order, so stats on time-ordered tables reflect only the
+        oldest data. Block sampling picks pages across the whole table instead.
+
+        - The percentage is oversampled (x2 the exact ratio) so the follow-up
+          `LIMIT n` usually still yields a full budget of rows.
+        - `REPEATABLE` with a seed derived deterministically from the table
+          name keeps re-runs byte-identical (FR-016 idempotency): profile
+          artifacts embed sample-derived stats, and the writer only skips
+          rewrites when content matches.
+
+        Returns None when the sample cannot be taken (caller falls back to
+        head sampling).
+        """
+        sa_table = self._reflect_table(table)
+        if sa_table is None or column not in sa_table.columns or self._engine is None:
+            return None
+        if total_rows <= 0 or total_rows <= n:
+            return None
+
+        percent = min(100.0, max((n / total_rows) * 100.0 * 2.0, 0.01))
+        seed = zlib.crc32(table.encode("utf-8")) % 1_000_000
+        sampled = tablesample(sa_table, func.system(percent), seed=text(str(seed)))
+        col = sampled.columns[column]
+        try:
+            with self._engine.connect() as conn:
+                stmt = select(col).limit(n)
+                return [row[0] for row in conn.execute(stmt)]
+        except SQLAlchemyError:
+            return None
 
     def close(self) -> None:
         if self._engine is not None:

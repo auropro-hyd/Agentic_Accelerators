@@ -51,6 +51,25 @@ def check_column_from_profile(
         )
         return issues  # other checks need a real profile
 
+    if profile.profile_status is ProfileStatus.ERROR:
+        # An errored profile must be as visible to the SME as an unprofiled
+        # one (D2b) — same issue type, with the error surfaced in details.
+        issues.append(
+            DetectedIssue(
+                issue_type=IssueType.UNPROFILED,
+                severity=default_severity_for(IssueType.UNPROFILED, thresholds),
+                affected_artifacts=[column.artifact_id],
+                details={
+                    "profile_status": ProfileStatus.ERROR.value,
+                    "error_reason": profile.error_reason or "unknown error",
+                },
+                suggestion="Profiling failed for this column — inspect `error_reason`, "
+                "fix the underlying cause (e.g. unsupported type handling), and re-run "
+                "`dla profile`.",
+            )
+        )
+        return issues  # stats on an errored profile are not meaningful
+
     # all_null_column trumps high_null_rate (more specific issue)
     if profile.sample_size > 0 and profile.null_rate >= 1.0:
         issues.append(
