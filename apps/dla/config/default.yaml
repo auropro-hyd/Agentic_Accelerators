@@ -8,3 +8,48 @@ thresholds:
   high_null_rate: 0.5
   high_null_rate_critical: 0.9
   sample_budget_rows: 10000
+
+  # Glossary term extraction (M6). Tokens on the stop-list are never proposed
+  # as business terms (D14). Overriding `glossary_stop_tokens` in an
+  # engagement config replaces this whole list.
+  glossary_min_recurrence: 3
+  glossary_stop_tokens:
+    # Grammar / connector noise.
+    - at
+    - "on"   # quoted: bare `on`/`no` are YAML booleans
+    - of
+    - the
+    - to
+    - by
+    - is
+    - "no"
+    - in
+    - ref
+    - fk
+    - pk
+    # Technical prefixes (staging / dimensional naming conventions).
+    - stg
+    - dim
+    - fact
+    - tmp
+    - raw
+    - src
+    # Generic column words that recur in any schema.
+    - id
+    - name
+    - status
+    - type
+    - code
+    - created
+    - updated
+    - deleted
+    - date
+    - key
+    - value
+    - flag
+    - notes
+
+  # Table-describe prompts render at most this many column bullets (D15);
+  # the most informative columns are kept and the rest are summarised as a
+  # name-only list.
+  describe_table_column_cap: 60

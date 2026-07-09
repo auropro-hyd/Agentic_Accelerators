@@ -46,6 +46,7 @@ from dla.bundle.layout import paths_for
 from dla.bundle.provenance import Provenance, preserves_sme_work
 from dla.bundle.reader import iter_artifacts, load_json_artifact
 from dla.bundle.schema import (
+    INSUFFICIENT_SIGNAL,
     ArtifactType,
     ColumnPayload,
     Confidence,
@@ -109,6 +110,11 @@ class DescribeResult:
     parsed: ParsedDraft | None = None
     response: LLMResponse | None = None
 
+    @property
+    def insufficient_signal(self) -> bool:
+        """True when the draft carries the `INSUFFICIENT_SIGNAL` sentinel (FR-011)."""
+        return self.parsed is not None and self.parsed.description == INSUFFICIENT_SIGNAL
+
 
 _MAX_REPORTED_ERRORS = 5
 """How many per-artifact failure messages `DescribeReport.errors` retains."""
@@ -124,6 +130,9 @@ class DescribeReport:
     skipped_sme_preserved: int = 0
     failed: int = 0
     sme_edits_committed: int = 0
+    insufficient_signal: int = 0
+    """Drafts that recorded the `INSUFFICIENT_SIGNAL` sentinel instead of prose
+    (FR-011) — same counting discipline as `GlossaryReport.insufficient_signal`."""
     errors: list[str] = field(default_factory=list)
     """First few per-artifact failure messages (capped at `_MAX_REPORTED_ERRORS`)."""
 
@@ -276,8 +285,87 @@ def build_column_context(bundle_root: Path, column_ref: str) -> dict[str, Any]:
     }
 
 
-def build_table_context(bundle_root: Path, table_ref: str) -> dict[str, Any]:
-    """Build the prompt-template context dict for one table (table + all its columns).
+_GENERIC_NAME_TOKENS = frozenset(
+    {
+        "id", "name", "status", "type", "code", "created", "updated", "deleted",
+        "date", "key", "value", "flag", "notes", "at", "on", "by", "is", "no",
+    }
+)
+"""Name tokens that carry no distinguishing signal — used only to rank columns
+for the table-prompt cap (D15). Mirrors the glossary stop-list defaults."""
+
+_NAME_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+
+def _is_generic_name(name: str) -> bool:
+    """True when every token of the column name is a generic/stop token."""
+    tokens = _NAME_TOKEN_RE.findall(name.lower())
+    return bool(tokens) and all(t in _GENERIC_NAME_TOKENS or t.isdigit() for t in tokens)
+
+
+def _column_informativeness(col_ctx: dict[str, Any], *, is_fk: bool) -> int:
+    """Score one column context for the table-prompt cap (D15). Higher = kept.
+
+    Deterministic: depends only on the column's own facts. Ties are broken by
+    schema position (stable sort), never by anything time- or order-dependent.
+    """
+    score = 0
+    if col_ctx["is_pk"]:
+        score += 100
+    if is_fk:
+        score += 80
+    if col_ctx["is_unique"]:
+        score += 40
+    profile = col_ctx.get("profile")
+    if profile is not None:
+        distinct = profile.get("distinct_count")
+        if distinct is not None and distinct > 10:
+            score += 20
+        elif distinct is not None and distinct > 1:
+            score += 10
+    if not _is_generic_name(col_ctx["name"]):
+        score += 5
+    return score
+
+
+def _cap_columns(
+    columns_ctx: list[dict[str, Any]],
+    fk_column_ids: set[str],
+    column_ids: list[str],
+    cap: int,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Pick the `cap` most informative columns; return (kept, omitted names).
+
+    Kept columns stay in schema order. Omitted names stay in schema order too,
+    so the "…and N more columns" summary is stable across runs.
+    """
+    if len(columns_ctx) <= cap:
+        return columns_ctx, []
+    scored = sorted(
+        range(len(columns_ctx)),
+        key=lambda i: (
+            -_column_informativeness(columns_ctx[i], is_fk=column_ids[i] in fk_column_ids),
+            i,
+        ),
+    )
+    keep = set(scored[:cap])
+    kept = [c for i, c in enumerate(columns_ctx) if i in keep]
+    omitted = [c["name"] for i, c in enumerate(columns_ctx) if i not in keep]
+    return kept, omitted
+
+
+def build_table_context(
+    bundle_root: Path, table_ref: str, *, column_cap: int | None = None
+) -> dict[str, Any]:
+    """Build the prompt-template context dict for one table (table + its columns).
+
+    `column_cap=None` returns the legacy (`table_v1`) context shape with every
+    column — byte-identical to the pre-cap behavior, so existing `table_v1`
+    grounding hashes stay valid. A positive `column_cap` (used by `table_v2+`)
+    keeps the most informative columns (PKs, FK endpoints, unique,
+    high-distinct, distinctly named — deterministic) and adds
+    `total_column_count` + `omitted_column_names` (names only, schema order)
+    so nothing is silently hidden from the prompt (D15).
 
     Raises:
         ArtifactNotFoundError: when the table is missing.
@@ -320,12 +408,22 @@ def build_table_context(bundle_root: Path, table_ref: str) -> dict[str, Any]:
         if r.from_column_ref in table_col_ids or r.to_column_ref in table_col_ids
     ]
 
-    return {
+    context: dict[str, Any] = {
         "source": _source_context(source),
         "table": _table_to_context(table),
         "columns": columns_ctx,
         "relationships": [_relationship_to_context(r) for r in related],
     }
+    if column_cap is not None:
+        fk_column_ids = {r.from_column_ref for r in related} | {
+            r.to_column_ref for r in related
+        }
+        column_ids = [c.artifact_id for c in table_columns]
+        kept, omitted = _cap_columns(columns_ctx, fk_column_ids, column_ids, column_cap)
+        context["columns"] = kept
+        context["omitted_column_names"] = omitted
+        context["total_column_count"] = len(columns_ctx)
+    return context
 
 
 # ----------------------------------------------------------------------------
@@ -355,11 +453,21 @@ def compute_grounding_hash(prompt_version: str, context: dict[str, Any]) -> str:
 # ----------------------------------------------------------------------------
 
 
+DEFAULT_COLUMN_PROMPT = "column_v2"
+DEFAULT_TABLE_PROMPT = "table_v2"
+DEFAULT_TABLE_COLUMN_CAP = 60
+
+_LEGACY_TABLE_PROMPTS = frozenset({"table_v1"})
+"""Table templates that predate the column cap. Their context shape (and
+therefore their grounding hashes) must stay exactly as originally shipped —
+capping is only applied to `table_v2` and later."""
+
+
 def plan_column(
     bundle_root: Path,
     column_ref: str,
     *,
-    prompt_version: str = "column_v1",
+    prompt_version: str = DEFAULT_COLUMN_PROMPT,
     model: str = "ollama/llama3.2",
     temperature: float = 0.1,
     max_tokens: int = 512,
@@ -392,13 +500,20 @@ def plan_table(
     bundle_root: Path,
     table_ref: str,
     *,
-    prompt_version: str = "table_v1",
+    prompt_version: str = DEFAULT_TABLE_PROMPT,
     model: str = "ollama/llama3.2",
     temperature: float = 0.1,
     max_tokens: int = 768,
+    column_cap: int = DEFAULT_TABLE_COLUMN_CAP,
 ) -> DescribePlan:
-    """Build the rendered prompt + LLMRequest for one table."""
-    context = build_table_context(bundle_root, table_ref)
+    """Build the rendered prompt + LLMRequest for one table.
+
+    `column_cap` bounds how many column bullets the prompt renders (D15);
+    it is ignored for legacy templates (`table_v1`) whose context shape —
+    and therefore grounding hashes — must stay stable.
+    """
+    effective_cap = None if prompt_version in _LEGACY_TABLE_PROMPTS else column_cap
+    context = build_table_context(bundle_root, table_ref, column_cap=effective_cap)
     prompt = render(prompt_version, context)
     grounding_hash = compute_grounding_hash(prompt_version, context)
     request = LLMRequest(
@@ -564,18 +679,29 @@ def build_description_payload(
     created_by_detail: str | None = None,
     created_at: datetime | None = None,
 ) -> DescriptionPayload:
-    """Assemble a DescriptionPayload from the plan + parsed LLM response."""
+    """Assemble a DescriptionPayload from the plan + parsed LLM response.
+
+    An `INSUFFICIENT_SIGNAL` draft (FR-011) is always stored with `Weak`
+    confidence, whatever label the model attached — the sentinel means "no
+    grounded prose is possible", so the review queue must surface it as
+    needing SME attention, never as a confident draft.
+    """
     now = _now_utc()
     grounding_signals: dict[str, Any] = {
         "grounding_fields": parsed.grounding,
     }
     if usage_tokens is not None:
         grounding_signals["usage_tokens"] = usage_tokens
+    confidence = (
+        Confidence.WEAK
+        if parsed.description == INSUFFICIENT_SIGNAL
+        else _confidence_from_label(parsed.confidence_label)
+    )
     return DescriptionPayload(
         artifact_id=description_artifact_id(plan.target_kind, plan.target_ref),
         source_id=source_id,
         provenance=provenance,
-        confidence=_confidence_from_label(parsed.confidence_label),
+        confidence=confidence,
         created_at=created_at or now,
         updated_at=now,
         created_by=created_by,
@@ -670,7 +796,7 @@ def describe_column(
     *,
     gateway: LLMGateway | None,
     source_id: str,
-    prompt_version: str = "column_v1",
+    prompt_version: str = DEFAULT_COLUMN_PROMPT,
     model: str = "ollama/llama3.2",
     force: bool = False,
     mock_response: str | None = None,
@@ -736,13 +862,16 @@ def describe_table(
     *,
     gateway: LLMGateway | None,
     source_id: str,
-    prompt_version: str = "table_v1",
+    prompt_version: str = DEFAULT_TABLE_PROMPT,
     model: str = "ollama/llama3.2",
     force: bool = False,
     mock_response: str | None = None,
+    column_cap: int = DEFAULT_TABLE_COLUMN_CAP,
 ) -> DescribeResult:
     """End-to-end describe for one table (table-level prose only, no per-column)."""
-    plan = plan_table(bundle_root, table_ref, prompt_version=prompt_version, model=model)
+    plan = plan_table(
+        bundle_root, table_ref, prompt_version=prompt_version, model=model, column_cap=column_cap
+    )
     desc_id = description_artifact_id("table", table_ref)
 
     if gateway is None:
@@ -799,12 +928,13 @@ def describe_all(
     *,
     gateway: LLMGateway,
     source_id: str,
-    column_prompt_version: str = "column_v1",
-    table_prompt_version: str = "table_v1",
+    column_prompt_version: str = DEFAULT_COLUMN_PROMPT,
+    table_prompt_version: str = DEFAULT_TABLE_PROMPT,
     model: str = "ollama/llama3.2",
     force: bool = False,
     restrict_table: str | None = None,
     mock_response: str | None = None,
+    table_column_cap: int = DEFAULT_TABLE_COLUMN_CAP,
 ) -> DescribeReport:
     """Describe every table + every column in the bundle, in stable order.
 
@@ -839,6 +969,7 @@ def describe_all(
     skipped_idempotent = 0
     skipped_sme_preserved = 0
     failed = 0
+    insufficient_signal = 0
     errors: list[str] = []
 
     def _record_failure(target_ref: str, exc: Exception) -> None:
@@ -858,6 +989,7 @@ def describe_all(
                 model=model,
                 force=force,
                 mock_response=mock_response,
+                column_cap=table_column_cap,
             )
         except Exception as exc:
             _record_failure(table.artifact_id, exc)
@@ -868,6 +1000,7 @@ def describe_all(
             skipped_sme_preserved += 1
         else:
             tables_drafted += 1
+            insufficient_signal += int(result.insufficient_signal)
 
     for column in columns:
         try:
@@ -890,6 +1023,7 @@ def describe_all(
             skipped_sme_preserved += 1
         else:
             columns_drafted += 1
+            insufficient_signal += int(result.insufficient_signal)
 
     _refresh_description_count_in_manifest(bundle_root, source_id)
 
@@ -899,6 +1033,7 @@ def describe_all(
         skipped_idempotent=skipped_idempotent,
         skipped_sme_preserved=skipped_sme_preserved,
         failed=failed,
+        insufficient_signal=insufficient_signal,
         errors=errors,
     )
 
@@ -992,6 +1127,10 @@ def commit_sme_edits(
 
 
 __all__ = [
+    "DEFAULT_COLUMN_PROMPT",
+    "DEFAULT_TABLE_COLUMN_CAP",
+    "DEFAULT_TABLE_PROMPT",
+    "INSUFFICIENT_SIGNAL",
     "ArtifactNotFoundError",
     "DescribePlan",
     "DescribeReport",

@@ -21,6 +21,7 @@ from dla.bundle.layout import filename_stem_for_artifact_id
 from dla.bundle.provenance import Provenance
 from dla.bundle.reader import iter_artifacts, load_manifest
 from dla.bundle.schema import (
+    INSUFFICIENT_SIGNAL,
     ArtifactType,
     ColumnPayload,
     Confidence,
@@ -295,6 +296,8 @@ class BundleView:
             attention.append("unprofiled — AI cannot ground here")
         if desc is None:
             attention.append("no draft")
+        elif desc.text.strip() == INSUFFICIENT_SIGNAL:
+            attention.append("insufficient signal — AI declined to draft; needs SME input")
         elif desc.confidence == Confidence.WEAK:
             attention.append("weak confidence")
 

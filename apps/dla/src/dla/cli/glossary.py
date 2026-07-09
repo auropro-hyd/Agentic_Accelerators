@@ -42,6 +42,13 @@ def build(
     mode: Annotated[
         str, typer.Option("--mode", help="`live` drafts definitions; `dry-run` lists terms only.")
     ] = "live",
+    include_stopped: Annotated[
+        bool,
+        typer.Option(
+            "--include-stopped",
+            help="(dry-run only) Also list recurring terms excluded by the stop-list.",
+        ),
+    ] = False,
     force: Annotated[
         bool, typer.Option("--force", help="Re-draft entries even if usages are unchanged.")
     ] = False,
@@ -75,10 +82,28 @@ def build(
         typer.echo(typer.style(f"Recurring terms (min_recurrence={recurrence}):", bold=True))
         for t in terms:
             typer.echo(f"  {t.term:<20} {t.recurrence_count} usages")
+        if include_stopped:
+            # Re-extract without the stop-list; anything new is a stopped term.
+            proposed = {t.term for t in terms}
+            stopped = [
+                t
+                for t in extract_terms(bundle_root, min_recurrence=recurrence, stop_tokens=[])
+                if t.term not in proposed
+            ]
+            typer.echo(typer.style("Stopped terms (excluded by stop-list):", bold=True))
+            for t in stopped:
+                typer.echo(f"  {t.term:<20} {t.recurrence_count} usages  (stopped)")
         typer.echo(typer.style(f"(dry-run: {len(terms)} terms; no LLM call)", fg=typer.colors.YELLOW))
         return
     if mode != "live":
         typer.secho(f"error: --mode must be 'live' or 'dry-run'; got {mode!r}.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=3)
+    if include_stopped:
+        typer.secho(
+            "error: --include-stopped is a dry-run listing aid; stopped terms are never drafted in live mode.",
+            fg=typer.colors.RED,
+            err=True,
+        )
         raise typer.Exit(code=3)
 
     # Fail fast (exit 3) when the provider needs an API key that is unset —

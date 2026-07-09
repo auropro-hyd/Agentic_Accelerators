@@ -89,10 +89,10 @@ def describe_cmd(
     ] = "live",
     column_prompt: Annotated[
         str, typer.Option("--column-prompt", help="Prompt template for columns.")
-    ] = "column_v1",
+    ] = "column_v2",
     table_prompt: Annotated[
         str, typer.Option("--table-prompt", help="Prompt template for tables.")
-    ] = "table_v1",
+    ] = "table_v2",
     force: Annotated[
         bool,
         typer.Option(
@@ -175,7 +175,11 @@ def describe_cmd(
                 assert table is not None
                 table_ref = table if table.startswith("table:") else f"table:{table}"
                 plan = plan_table(
-                    bundle_root, table_ref, prompt_version=table_prompt, model=model
+                    bundle_root,
+                    table_ref,
+                    prompt_version=table_prompt,
+                    model=model,
+                    column_cap=cfg.thresholds.describe_table_column_cap,
                 )
         except ArtifactNotFoundError as exc:
             typer.secho(f"artifact-not-found: {exc}", fg=typer.colors.RED, err=True)
@@ -231,7 +235,7 @@ def describe_cmd(
             drafted = 1 if r.skipped_reason is None else 0
             idem = 1 if r.skipped_reason == "idempotent" else 0
             sme = 1 if r.skipped_reason == "sme-preserved" else 0
-            results_summary = (drafted, 0, idem, sme, 0)
+            results_summary = (drafted, 0, idem, sme, 0, int(r.insufficient_signal))
         # describe-one-table (with its columns)
         elif table is not None:
             report = describe_all(
@@ -244,6 +248,7 @@ def describe_cmd(
                 force=force,
                 restrict_table=table,
                 mock_response=mock_response,
+                table_column_cap=cfg.thresholds.describe_table_column_cap,
             )
             results_summary = (
                 report.columns_drafted,
@@ -251,6 +256,7 @@ def describe_cmd(
                 report.skipped_idempotent,
                 report.skipped_sme_preserved,
                 report.failed,
+                report.insufficient_signal,
             )
             error_detail = "; ".join(report.errors)
         else:
@@ -264,6 +270,7 @@ def describe_cmd(
                 model=model,
                 force=force,
                 mock_response=mock_response,
+                table_column_cap=cfg.thresholds.describe_table_column_cap,
             )
             results_summary = (
                 report.columns_drafted,
@@ -271,6 +278,7 @@ def describe_cmd(
                 report.skipped_idempotent,
                 report.skipped_sme_preserved,
                 report.failed,
+                report.insufficient_signal,
             )
             error_detail = "; ".join(report.errors)
     except ArtifactNotFoundError as exc:
@@ -289,7 +297,7 @@ def describe_cmd(
         typer.secho(f"describe failed: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from exc
 
-    cols_drafted, tbls_drafted, idem, sme_p, fail = results_summary
+    cols_drafted, tbls_drafted, idem, sme_p, fail, insufficient = results_summary
     if fail and cols_drafted + tbls_drafted == 0:
         # Every attempted draft failed (e.g. provider unreachable) — this is
         # a failed run, not a quiet success.
@@ -309,6 +317,8 @@ def describe_cmd(
     typer.echo(f"  tables drafted:         {tbls_drafted}")
     typer.echo(f"  skipped (idempotent):   {idem}")
     typer.echo(f"  skipped (sme-preserved):{sme_p}")
+    if insufficient:
+        typer.echo(f"  insufficient signal:    {insufficient}")
     if fail:
         typer.echo(typer.style(f"  failed:                 {fail}", fg=typer.colors.YELLOW))
     if mock_response is not None:
