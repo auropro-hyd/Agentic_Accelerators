@@ -134,6 +134,17 @@ class RelationshipPayload(CommonFields):
     to_column_ref: str
     relationship_type: Literal["declared_fk", "inferred_fk", "inferred_join_key"]
     signals: list[str] = Field(default_factory=list)
+    composite_group: str | None = None
+    """Groups the column pairs of one multi-column (composite) foreign key.
+
+    A composite FK (e.g. `ledger(fiscal_year, fiscal_month) ->
+    fiscal_periods(fiscal_year, fiscal_month)`) is persisted as one
+    relationship artifact per column pair; every member carries the same
+    `composite_group` id (derived deterministically from the declared
+    constraint name, falling back to the sorted source-column set) so
+    downstream consumers can reassemble the composite join. `None` for
+    ordinary single-column relationships. Additive since schema 1.1.0 —
+    bundles written before this field remain valid."""
 
 
 class IndexPayload(CommonFields):
@@ -430,7 +441,9 @@ class RecommendationPayload(CommonFields):
 # Single source of truth for the bundle contract version. The published JSON
 # Schema (`bundle-schema.json`) and every manifest carry this exact string; a
 # parity test (T183) pins them equal so the contract can never silently drift.
-SCHEMA_VERSION = "1.0.0"
+# 1.1.0: additive `composite_group` on relationship artifacts (D13) — backward
+# compatible, 1.0.0 bundles remain valid.
+SCHEMA_VERSION = "1.1.0"
 
 
 class BundleManifest(BaseModel):
