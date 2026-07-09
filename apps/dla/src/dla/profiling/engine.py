@@ -28,6 +28,10 @@ from dla.profiling.statistics import compute_stats
 _log = get_logger("dla.profiling")
 
 
+class TableNotFoundError(LookupError):
+    """Raised when `only_table` names a table the bundle does not contain (D7)."""
+
+
 @dataclass
 class ProfileReport:
     source_id: str
@@ -82,6 +86,15 @@ def profile(
         list[TablePayload], list(iter_artifacts(bundle_root, ArtifactType.TABLE))
     )
     tables_by_ref: dict[str, str] = {t.artifact_id: t.name for t in tables}
+
+    # D7: a --table filter that matches nothing must fail loudly (exit 4 at
+    # the CLI), not complete as a silent no-op. Checked before connecting.
+    if only_table is not None and only_table not in tables_by_ref.values():
+        raise TableNotFoundError(
+            f"table {only_table!r} not found in bundle {bundle_root} — nothing to "
+            f"profile. Use the schema-qualified source table name "
+            f"(e.g. public.orders) as shown by `dla discover`."
+        )
 
     columns_iter = cast(
         list[ColumnPayload], list(iter_artifacts(bundle_root, ArtifactType.COLUMN))

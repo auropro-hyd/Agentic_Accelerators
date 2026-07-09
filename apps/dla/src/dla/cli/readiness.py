@@ -71,7 +71,11 @@ def readiness_cmd(
         )
         raise typer.Exit(code=3) from exc
 
-    connector = None if offline else _build_connector(cfg.source.provider, cfg.source.connection())
+    try:
+        connector = None if offline else _build_connector(cfg.source.provider, cfg.source.connection())
+    except ConfigError as exc:
+        typer.secho(f"error: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=3) from exc
 
     try:
         report = assemble(

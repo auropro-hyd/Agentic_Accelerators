@@ -270,4 +270,18 @@ class PostgresConnector:
 
 # Module-level factory: register with the discovery engine via this name.
 def build(cfg: PostgresConnectionConfig) -> SourceConnector:
+    """Build a Postgres connector, failing fast on a missing credential (D6).
+
+    The password env var named by `postgres.password_env_var` must be set
+    *before* the connector is built — this raises `ConfigError` (CLI exit
+    code 3) rather than letting an empty password reach the server and
+    surface as an opaque transport error (exit 2).
+    """
+    from dla.config.loader import require_env_var
+
+    require_env_var(
+        cfg.password_env_var,
+        purpose=f"password for postgres source {cfg.host}:{cfg.port}/{cfg.database}, "
+        f"named by postgres.password_env_var",
+    )
     return PostgresConnector(cfg)

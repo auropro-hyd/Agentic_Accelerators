@@ -7,24 +7,28 @@
     dla run -c <yaml> --skip-step readiness --stop-on-readiness-critical
 
 Exit codes: 0 success · 1 step failure · 2 connection · 3 config/usage ·
-5 validation failure · 6 nothing to resume · 7 halted on critical readiness.
+5 validation failure · 6 interrupted (Ctrl-C) or nothing to resume ·
+7 halted on critical readiness.
 """
 
 from __future__ import annotations
 
+import contextlib
+import signal
 from pathlib import Path
 from typing import Annotated
 
 import typer
 from auropro_core.logging import configure_logging, get_logger
 
-from dla.config.loader import ConfigError, load_config
+from dla.config.loader import ConfigError, load_config, require_llm_api_key
 from dla.connectors.base import ConnectionError as ConnectorConnectionError
 from dla.connectors.csv_folder import build as build_csv_folder
 from dla.connectors.postgres import build as build_postgres
 from dla.orchestrator.recovery import UnknownStepError, plan_steps
 from dla.orchestrator.runner import (
     PipelineError,
+    PipelineInterrupted,
     ReadinessCriticalStop,
     RunResult,
     StepContext,
@@ -34,6 +38,27 @@ from dla.orchestrator.state import load_state
 
 app = typer.Typer(help="Run the full pipeline from a clean source to a validated bundle.")
 _log = get_logger("dla.cli.run")
+
+
+def _install_sigint_handler() -> None:
+    """Make Ctrl-C abort the run deterministically (D3).
+
+    Contexts that launch `dla run` with SIGINT ignored (e.g. `cmd &` in a
+    non-interactive shell, some process managers) inherit SIG_IGN, so the
+    default KeyboardInterrupt never fires and the pipeline runs to
+    completion. Re-arming the handler guarantees the interrupt reaches the
+    step loop, which persists `.run_state.json` and exits with the
+    documented user-cancelled code 6.
+    """
+
+    def _raise_keyboard_interrupt(signum: int, frame: object) -> None:
+        del signum, frame
+        raise KeyboardInterrupt
+
+    # ValueError: not the main thread (embedded / test harness) — leave the
+    # existing disposition alone.
+    with contextlib.suppress(ValueError):
+        signal.signal(signal.SIGINT, _raise_keyboard_interrupt)
 
 
 def _build_connector(provider: str, conn_cfg):  # type: ignore[no-untyped-def]
@@ -104,14 +129,21 @@ def run_cmd(
         )
         raise typer.Exit(code=6)
 
-    connector = _build_connector(cfg.source.provider, cfg.source.connection())
+    # Credential fail-fast (D6): a missing password / API key env var is a
+    # config error (exit 3) surfaced before any connection attempt.
     gateway = None
     model = ""
-    if llm:
-        from auropro_llm.gateway import build_gateway
+    try:
+        connector = _build_connector(cfg.source.provider, cfg.source.connection())
+        if llm:
+            from auropro_llm.gateway import build_gateway
 
-        gateway = build_gateway(cfg.llm, dry_run=False)
-        model = f"{cfg.llm.provider}/{cfg.llm.model}"
+            require_llm_api_key(cfg.llm)
+            gateway = build_gateway(cfg.llm, dry_run=False)
+            model = f"{cfg.llm.provider}/{cfg.llm.model}"
+    except ConfigError as exc:
+        typer.secho(f"error: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=3) from exc
 
     step_ctx = StepContext(
         cfg=cfg,
@@ -123,8 +155,25 @@ def run_cmd(
     )
 
     typer.echo(typer.style(f"Running pipeline: {', '.join(steps)}", fg=typer.colors.CYAN))
+    _install_sigint_handler()
     try:
         result: RunResult = run_pipeline(step_ctx, steps=steps)
+    except PipelineInterrupted as exc:
+        typer.secho(
+            f"\ninterrupted during step {exc.step!r} — progress saved. "
+            f"Resume with:  dla run -c {config_path} --resume",
+            fg=typer.colors.YELLOW,
+            bold=True,
+        )
+        raise typer.Exit(code=6) from exc
+    except KeyboardInterrupt as exc:
+        # SIGINT landed outside the step loop (planning / teardown).
+        typer.secho(
+            f"\ninterrupted — resume with:  dla run -c {config_path} --resume",
+            fg=typer.colors.YELLOW,
+            bold=True,
+        )
+        raise typer.Exit(code=6) from exc
     except ReadinessCriticalStop as exc:
         typer.secho(f"\nhalted: {exc}", fg=typer.colors.YELLOW, bold=True)
         raise typer.Exit(code=7) from exc
@@ -153,6 +202,10 @@ def run_cmd(
         raise typer.Exit(code=5)
     typer.echo(typer.style("Pipeline complete.", fg=typer.colors.GREEN, bold=True))
     typer.echo(f"  completed: {', '.join(result.completed)}")
+    for step_name, summary in result.summaries.items():
+        typer.echo(f"    {step_name}: {summary}")
     if result.skipped:
         typer.echo(f"  skipped:   {', '.join(result.skipped)} (LLM not enabled — pass --llm)")
+    for warning in result.warnings:
+        typer.secho(f"  warning:   {warning}", fg=typer.colors.YELLOW)
     typer.echo(f"  bundle:    {bundle_root}")

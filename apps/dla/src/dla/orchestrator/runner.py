@@ -61,8 +61,34 @@ class PipelineError(RuntimeError):
         self.cause = cause
 
 
+class PipelineInterrupted(RuntimeError):
+    """SIGINT (Ctrl-C) arrived mid-run; `step` names the step that was aborted (D3).
+
+    The run state is persisted before this is raised, so `dla run --resume`
+    continues after the last completed step. The CLI maps it to the
+    documented user-cancelled exit code 6.
+    """
+
+    def __init__(self, step: str) -> None:
+        super().__init__(f"interrupted during step {step!r}")
+        self.step = step
+
+
 class ReadinessCriticalStop(RuntimeError):
     """Raised when --stop-on-readiness-critical halts the run before describe."""
+
+
+@dataclass
+class StepSummary:
+    """Optional per-step outcome a step function can return.
+
+    `text` is a one-line human summary the CLI prints under the step name;
+    `warnings` are non-fatal problems (e.g. partial describe failures) the
+    CLI must surface even though the step counts as completed.
+    """
+
+    text: str
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -81,6 +107,10 @@ class RunResult:
     skipped: list[str] = field(default_factory=list)
     failed: str | None = None
     validation_errors: int = 0
+    summaries: dict[str, str] = field(default_factory=dict)
+    """Per-step one-line outcome summaries (steps that returned a StepSummary)."""
+    warnings: list[str] = field(default_factory=list)
+    """Non-fatal problems the CLI must surface (e.g. partial describe failures)."""
 
 
 def _require_connector(ctx: StepContext) -> SourceConnector:
@@ -111,13 +141,38 @@ def _step_readiness(ctx: StepContext) -> None:
         )
 
 
-def _step_describe(ctx: StepContext) -> bool:
+def _step_describe(ctx: StepContext) -> bool | StepSummary:
+    """Run describe-all; count drafted/skipped/failed and surface failures.
+
+    A drafting failure on one artifact does not abort the step (partial
+    progress is kept), but it must not be silent either: failures become
+    warnings on the RunResult. If EVERY attempted draft failed (e.g. the
+    LLM provider is unreachable), the step itself fails — the run must not
+    report a "completed" describe step that produced nothing.
+    """
     if ctx.gateway is None:
         return False
     from dla.describe.engine import describe_all
 
-    describe_all(ctx.bundle_root, gateway=ctx.gateway, source_id=ctx.cfg.source.source_id, model=ctx.model)
-    return True
+    report = describe_all(
+        ctx.bundle_root, gateway=ctx.gateway, source_id=ctx.cfg.source.source_id, model=ctx.model
+    )
+    skipped = report.skipped_idempotent + report.skipped_sme_preserved
+    summary = StepSummary(
+        text=f"drafted {report.drafted}, skipped {skipped}, failed {report.failed}"
+    )
+    if report.failed:
+        detail = "; ".join(report.errors) or "no error detail captured"
+        if report.drafted == 0:
+            raise RuntimeError(
+                f"all {report.failed} attempted draft(s) failed — no descriptions were "
+                f"written (is the LLM provider reachable?). First error(s): {detail}"
+            )
+        summary.warnings.append(
+            f"describe: {report.failed} draft(s) failed "
+            f"({report.drafted} drafted, {skipped} skipped). First error(s): {detail}"
+        )
+    return summary
 
 
 def _step_glossary(ctx: StepContext) -> bool:
@@ -189,6 +244,19 @@ def run_pipeline(
                     result.skipped.append(step)
                     _log.info("step_skipped", **with_ctx, reason="no gateway", duration_ms=_ms(started))
                     continue
+                if isinstance(outcome, StepSummary):
+                    result.summaries[step] = outcome.text
+                    result.warnings.extend(outcome.warnings)
+                    for warning in outcome.warnings:
+                        _log.info("step_warning", **with_ctx, warning=warning)
+        except KeyboardInterrupt:
+            # SIGINT (Ctrl-C): abort the current step, persist state so
+            # `--resume` continues after the last completed step (D3).
+            state.mark_failed(step)
+            save_state(ctx.bundle_root, state)
+            result.failed = step
+            _log.info("step_interrupted", **with_ctx, duration_ms=_ms(started))
+            raise PipelineInterrupted(step) from None
         except ReadinessCriticalStop:
             # A deliberate halt, not a failure — record the stop and re-raise as-is.
             state.mark_failed(step)

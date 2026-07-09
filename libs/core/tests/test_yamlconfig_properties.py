@@ -13,8 +13,12 @@ from auropro_core.yamlconfig import apply_env_overrides
 
 _SEGMENT = st.text(alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", min_size=1, max_size=8)
 _ENV_KEYS = st.lists(_SEGMENT, min_size=1, max_size=4).map(lambda segs: "TESTAPP__" + "__".join(segs))
-# Env-var values must not contain null bytes (os.environ rejects them on POSIX).
-_ENV_VAL = st.text(alphabet=st.characters(blacklist_characters="\x00"), max_size=12)
+# Env-var values must not contain null bytes (os.environ rejects them on POSIX)
+# and must be utf-8 encodable (os.environ rejects lone surrogates).
+_ENV_VAL = st.text(
+    alphabet=st.characters(blacklist_characters="\x00", blacklist_categories=("Cs",)),
+    max_size=12,
+)
 _SCALARS = st.one_of(st.integers(), st.text(max_size=12), st.booleans(), st.none())
 _NESTED = st.recursive(
     st.dictionaries(st.text(alphabet="abcdefgh", min_size=1, max_size=6), _SCALARS, max_size=4),
