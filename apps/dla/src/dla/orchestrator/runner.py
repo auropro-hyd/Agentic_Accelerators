@@ -155,11 +155,18 @@ def _step_describe(ctx: StepContext) -> bool | StepSummary:
     from dla.describe.engine import describe_all
 
     report = describe_all(
-        ctx.bundle_root, gateway=ctx.gateway, source_id=ctx.cfg.source.source_id, model=ctx.model
+        ctx.bundle_root,
+        gateway=ctx.gateway,
+        source_id=ctx.cfg.source.source_id,
+        model=ctx.model,
+        table_column_cap=ctx.cfg.thresholds.describe_table_column_cap,
     )
     skipped = report.skipped_idempotent + report.skipped_sme_preserved
+    insufficient = (
+        f", insufficient-signal {report.insufficient_signal}" if report.insufficient_signal else ""
+    )
     summary = StepSummary(
-        text=f"drafted {report.drafted}, skipped {skipped}, failed {report.failed}"
+        text=f"drafted {report.drafted}, skipped {skipped}, failed {report.failed}{insufficient}"
     )
     if report.failed:
         detail = "; ".join(report.errors) or "no error detail captured"

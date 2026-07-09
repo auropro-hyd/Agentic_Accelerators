@@ -16,7 +16,7 @@ from pathlib import Path
 from dla.bundle.layout import paths_for
 from dla.bundle.provenance import Provenance
 from dla.bundle.reader import load_json_artifact
-from dla.bundle.schema import ArtifactType, GlossaryEntryPayload
+from dla.bundle.schema import INSUFFICIENT_SIGNAL, ArtifactType, GlossaryEntryPayload
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 _CONFIRMED = {Provenance.AI_DRAFTED_EDITED, Provenance.SME_AUTHORED}
@@ -38,7 +38,7 @@ def confirmed_glossary_for_name(bundle_root: Path, name: str) -> list[dict[str, 
         if (
             isinstance(payload, GlossaryEntryPayload)
             and payload.provenance in _CONFIRMED
-            and payload.definition != "INSUFFICIENT_SIGNAL"
+            and payload.definition != INSUFFICIENT_SIGNAL
         ):
             out.append({"term": payload.term, "definition": payload.definition})
     return out

@@ -147,8 +147,8 @@ def test_plan_column_renders_prompt_grounded_in_bundle_facts(tmp_path: Path) -> 
     plan = plan_column(tmp_path, "column:public.orders:status")
     assert plan.target_kind == "column"
     assert plan.target_ref == "column:public.orders:status"
-    assert plan.prompt_version == "column_v1"
-    assert plan.gateway_request.prompt_version == "column_v1"
+    assert plan.prompt_version == "column_v2"
+    assert plan.gateway_request.prompt_version == "column_v2"
     assert plan.gateway_request.response_format == "json"
     assert plan.grounding_hash and len(plan.grounding_hash) == 64
     # Grounding signals must appear in the prompt.
@@ -327,7 +327,7 @@ def test_describe_column_live_writes_ai_drafted_artifact(tmp_path: Path) -> None
     assert on_disk.provenance.value == "ai-drafted"
     assert on_disk.target_kind == "column"
     assert on_disk.target_artifact_ref == "column:public.orders:status"
-    assert on_disk.prompt_version == "column_v1"
+    assert on_disk.prompt_version == "column_v2"
     assert on_disk.grounding_hash is not None and len(on_disk.grounding_hash) == 64
     assert on_disk.grounding_signals is not None
     assert "grounding_fields" in on_disk.grounding_signals
@@ -528,7 +528,7 @@ def test_describe_table_writes_ai_drafted_artifact(tmp_path: Path) -> None:
     assert on_disk is not None
     assert on_disk.target_kind == "table"
     assert on_disk.text == "Customer orders."
-    assert on_disk.prompt_version == "table_v1"
+    assert on_disk.prompt_version == "table_v2"
 
 
 def test_describe_all_iterates_tables_and_columns(tmp_path: Path) -> None:

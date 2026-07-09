@@ -107,10 +107,30 @@ class ThresholdsConfig(BaseModel):
     """A name token must appear in at least this many tables/columns to propose a term."""
     glossary_stop_tokens: list[str] = Field(
         default_factory=lambda: [
-            "id", "at", "on", "of", "the", "to", "by", "is", "no", "in", "ref", "fk", "pk",
+            # Grammar / connector noise.
+            "at", "on", "of", "the", "to", "by", "is", "no", "in", "ref", "fk", "pk",
+            # Technical prefixes (staging / dimensional naming conventions) —
+            # `stg_orders` or `dim_product` recur everywhere but `stg`/`dim`
+            # are modeling jargon, not business terms (D14).
+            "stg", "dim", "fact", "tmp", "raw", "src",
+            # Generic column words that recur in any schema without carrying
+            # engagement-specific business meaning (D14).
+            "id", "name", "status", "type", "code", "created", "updated",
+            "deleted", "date", "key", "value", "flag", "notes",
         ]
     )
-    """Noise tokens skipped by the glossary extractor (plus single chars and pure digits)."""
+    """Stop-list for the glossary extractor (plus single chars and pure digits).
+
+    Overridable per engagement config — a YAML `glossary_stop_tokens` replaces
+    this whole list (e.g. drop `code` for a client where "code" is a real
+    business term)."""
+
+    # Describe (M3) thresholds.
+    describe_table_column_cap: int = 60
+    """Max column bullets rendered into a table-describe prompt (D15). The most
+    informative columns (PKs, FK endpoints, unique, high-distinct, distinctly
+    named) are kept; the rest are summarised as a name-only list so nothing is
+    silently hidden. Selection is deterministic."""
 
     # Recommender (M8) thresholds — deterministic strategy selection (FR-018).
     recommender_min_coverage: float = 0.5

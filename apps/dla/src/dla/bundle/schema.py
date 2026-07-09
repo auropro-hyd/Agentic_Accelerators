@@ -48,6 +48,13 @@ class Confidence(StrEnum):
     WEAK = "Weak"
 
 
+INSUFFICIENT_SIGNAL = "INSUFFICIENT_SIGNAL"
+"""Sentinel text an AI draft carries when the grounding evidence is too thin
+to support prose (FR-011). Emitted by the glossary definer and — since
+`column_v2`/`table_v2` — the describe engine; the review queue prioritizes
+artifacts carrying it, and downstream grounding loops must ignore them."""
+
+
 class NormalizedType(StrEnum):
     STRING = "string"
     INTEGER = "integer"
