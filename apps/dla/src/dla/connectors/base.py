@@ -90,8 +90,11 @@ class SourceConnector(Protocol):
 
     def sample_column(self, table: str, column: str, n: int) -> list[Any]:
         """Return up to `n` *non-null* values from `table.column`. Used by
-        discovery's value-overlap signal. May be empty if the column is too
-        costly to sample (e.g. very large LOB)."""
+        discovery's value-overlap signal and readiness orphan checks. May be
+        empty if the column is too costly to sample (e.g. very large LOB).
+        Which rows are sampled must be deterministic across re-runs of an
+        unchanged source (D19): overlap ratios and orphan counts derived
+        from the sample feed idempotency-sensitive artifacts."""
 
     def row_count(self, table: str) -> int:
         """Return the total row count for `table`. Returns 0 for empty
@@ -99,8 +102,11 @@ class SourceConnector(Protocol):
 
     def sample_with_nulls(self, table: str, column: str, n: int) -> list[Any]:
         """Return up to `n` values from `table.column` *including nulls*.
-        Used by profiling to compute null rate from a sample. Order is
-        unspecified — callers must not rely on it.
+        Used by profiling to compute null rate from a sample. The sampled
+        rows (and their order) must be deterministic across re-runs of an
+        unchanged source (D19/FR-016): profile artifacts embed
+        sample-derived stats and the writer skips rewrites only when
+        content matches.
         """
 
     def close(self) -> None: ...

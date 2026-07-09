@@ -192,13 +192,31 @@ class PostgresConnector:
         except SQLAlchemyError:
             return None
 
+    @staticmethod
+    def _sample_order(sa_table: Table) -> list[Any]:
+        """Deterministic ordering for sample reads (D19).
+
+        `LIMIT n` without ORDER BY lets Postgres return rows in whatever
+        order the scan produces — synchronized sequential scans can start
+        mid-table, so re-runs may sample different rows. Ordering by the
+        primary key uses the PK index (no full-table sort); tables without
+        a PK fall back to physical `ctid` order.
+        """
+        pk = list(sa_table.primary_key.columns)
+        return pk if pk else [text("ctid")]
+
     def sample_column(self, table: str, column: str, n: int) -> list[Any]:
         sa_table = self._reflect_table(table)
         if sa_table is None or column not in sa_table.columns or self._engine is None:
             return []
         col = sa_table.columns[column]
         with self._engine.connect() as conn:
-            stmt = select(col).where(col.isnot(None)).limit(n)
+            stmt = (
+                select(col)
+                .where(col.isnot(None))
+                .order_by(*self._sample_order(sa_table))
+                .limit(n)
+            )
             return [row[0] for row in conn.execute(stmt)]
 
     def row_count(self, table: str) -> int:
@@ -221,7 +239,7 @@ class PostgresConnector:
         col = sa_table.columns[column]
         try:
             with self._engine.connect() as conn:
-                stmt = select(col).limit(n)
+                stmt = select(col).order_by(*self._sample_order(sa_table)).limit(n)
                 return [row[0] for row in conn.execute(stmt)]
         except SQLAlchemyError:
             return []
@@ -241,6 +259,9 @@ class PostgresConnector:
           name keeps re-runs byte-identical (FR-016 idempotency): profile
           artifacts embed sample-derived stats, and the writer only skips
           rewrites when content matches.
+        - The final `LIMIT n` carries an ORDER BY (D19): REPEATABLE pins
+          which pages are sampled, but not the order rows come back in, so
+          without it which rows survive the LIMIT could still drift.
 
         Returns None when the sample cannot be taken (caller falls back to
         head sampling).
@@ -255,9 +276,11 @@ class PostgresConnector:
         seed = zlib.crc32(table.encode("utf-8")) % 1_000_000
         sampled = tablesample(sa_table, func.system(percent), seed=text(str(seed)))
         col = sampled.columns[column]
+        pk_names = [c.name for c in sa_table.primary_key.columns]
+        order_by: list[Any] = [sampled.columns[name] for name in pk_names] or [text("ctid")]
         try:
             with self._engine.connect() as conn:
-                stmt = select(col).limit(n)
+                stmt = select(col).order_by(*order_by).limit(n)
                 return [row[0] for row in conn.execute(stmt)]
         except SQLAlchemyError:
             return None
