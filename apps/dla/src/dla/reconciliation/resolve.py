@@ -23,7 +23,7 @@ from dla.bundle.schema import (
     ImportedArtifactPayload,
     ReconciliationResultPayload,
 )
-from dla.bundle.writer import write_artifact
+from dla.bundle.writer import refresh_manifest_counts, write_artifact
 from dla.describe.engine import (
     description_artifact_id,
     load_existing_description,
@@ -132,4 +132,5 @@ def resolve_result(
             text=text,
         )
         write_description(bundle_root, desc, force=True)
+    refresh_manifest_counts(bundle_root, source_id=result.source_id)
     return updated

@@ -22,7 +22,7 @@ from dla.bundle.schema import (
     ImportedArtifactPayload,
     KpiPayload,
 )
-from dla.bundle.writer import write_artifact
+from dla.bundle.writer import refresh_manifest_counts, write_artifact
 from dla.importers import ImportReport, RawImport
 
 # Reviewable knowledge inherited from a prior engagement's bundle (T155).
@@ -71,6 +71,7 @@ def normalize_and_write(
         report.written += 1
         fmt = str(raw.source_format)
         report.by_format[fmt] = report.by_format.get(fmt, 0) + 1
+    refresh_manifest_counts(bundle_root, source_id=source_id)
     return report
 
 
@@ -122,4 +123,5 @@ def import_prior_bundle(
             report.written += 1
             key = str(artifact_type)
             report.by_format[key] = report.by_format.get(key, 0) + 1
+    refresh_manifest_counts(bundle_root)
     return report

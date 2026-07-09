@@ -25,7 +25,7 @@ from dla.bundle.schema import (
     Severity,
     StrategyConfidence,
 )
-from dla.bundle.writer import now_utc, write_artifact
+from dla.bundle.writer import now_utc, refresh_manifest_counts, write_artifact
 from dla.config.models import ThresholdsConfig
 from dla.recommender.signals import RecommenderSignals, extract_signals
 from dla.recommender.strategies import StrategyScore, score_strategies
@@ -42,7 +42,8 @@ class ReadinessHeader:
     verdict: str  # GREEN / AMBER / RED
     critical: int
     warning: int
-    coverage_pct: float
+    coverage_pct: float | None
+    """None means "nothing reviewable yet" (D17) — treated as incomplete review."""
 
     @property
     def blockers(self) -> str:
@@ -51,12 +52,14 @@ class ReadinessHeader:
             parts.append(f"{self.critical} critical issue(s)")
         if self.warning:
             parts.append(f"{self.warning} warning(s)")
-        if self.coverage_pct < 1.0:
+        if self.coverage_pct is None:
+            parts.append("review coverage 0% (nothing reviewable yet)")
+        elif self.coverage_pct < 1.0:
             parts.append(f"review coverage {self.coverage_pct:.0%}")
         return "; ".join(parts) or "none"
 
 
-def _readiness_header(bundle_root: Path, coverage_pct: float) -> ReadinessHeader:
+def _readiness_header(bundle_root: Path, coverage_pct: float | None) -> ReadinessHeader:
     issues = cast(
         list[ReadinessIssuePayload], iter_artifacts(bundle_root, ArtifactType.READINESS_ISSUE)
     )
@@ -64,7 +67,7 @@ def _readiness_header(bundle_root: Path, coverage_pct: float) -> ReadinessHeader
     warning = sum(1 for i in issues if i.severity == Severity.WARNING)
     if critical:
         verdict = "RED"
-    elif warning or coverage_pct < 1.0:
+    elif warning or coverage_pct is None or coverage_pct < 1.0:
         verdict = "AMBER"
     else:
         verdict = "GREEN"
@@ -79,7 +82,7 @@ _DOWNGRADE = {
 
 
 def _confidence(
-    margin: int, coverage_pct: float, min_coverage: float
+    margin: int, coverage_pct: float | None, min_coverage: float
 ) -> tuple[StrategyConfidence, str | None]:
     if margin >= 3:
         base = StrategyConfidence.HIGH
@@ -87,6 +90,13 @@ def _confidence(
         base = StrategyConfidence.MEDIUM
     else:
         base = StrategyConfidence.LOW
+    if coverage_pct is None:
+        # Nothing reviewable yet (fresh bundle) is 0% coverage, not 100% (D17).
+        warning = (
+            "No reviewable artifacts yet (review coverage 0%) — recommendation "
+            "confidence reduced until SME review begins (FR-023)."
+        )
+        return _DOWNGRADE[base], warning
     if coverage_pct < min_coverage:
         warning = (
             f"Review coverage {coverage_pct:.0%} is below the {min_coverage:.0%} "
@@ -188,6 +198,7 @@ def recommend(
     )
     body = _render_body(payload, header, signals)
     result = write_artifact(bundle_root, payload, body=body)
+    refresh_manifest_counts(bundle_root, source_id=source_id)
     if result.skipped_to_preserve_sme:
         # An override is in place — return the preserved artifact untouched.
         existing = load_json_artifact(Path(result.json_path))

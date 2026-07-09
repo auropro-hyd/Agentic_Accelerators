@@ -13,7 +13,7 @@ from pathlib import Path
 
 from dla.bundle.provenance import Provenance
 from dla.bundle.schema import CreatedBy, PatternPayload
-from dla.bundle.writer import write_artifact
+from dla.bundle.writer import refresh_manifest_counts, write_artifact
 from dla.patterns import audit_columns, junction, snowflake, star
 from dla.patterns.base import DetectedPattern, build_graph
 
@@ -54,4 +54,5 @@ def detect_patterns(bundle_root: Path, *, source_id: str) -> list[PatternPayload
         )
         write_artifact(bundle_root, payload, body=p.explanation)
         payloads.append(payload)
+    refresh_manifest_counts(bundle_root, source_id=source_id)
     return payloads

@@ -22,7 +22,7 @@ from dla.bundle.schema import (
     ReconciliationBucket,
     ReconciliationResultPayload,
 )
-from dla.bundle.writer import write_artifact
+from dla.bundle.writer import refresh_manifest_counts, write_artifact
 from dla.reconciliation.classifier import classify
 from dla.reconciliation.matcher import match
 
@@ -110,4 +110,5 @@ def reconcile(bundle_root: Path, *, source_id: str) -> list[ReconciliationResult
 
     for r in results:
         write_artifact(bundle_root, r, body=_result_body(r.bucket, r.imported_ref))
+    refresh_manifest_counts(bundle_root, source_id=source_id)
     return results

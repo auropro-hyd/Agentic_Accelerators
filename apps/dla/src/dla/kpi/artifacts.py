@@ -10,7 +10,7 @@ from dla.bundle.layout import paths_for
 from dla.bundle.provenance import Provenance
 from dla.bundle.reader import load_json_artifact
 from dla.bundle.schema import ArtifactType, CreatedBy, FormulaKind, KpiPayload
-from dla.bundle.writer import WriteResult, write_artifact
+from dla.bundle.writer import WriteResult, refresh_manifest_counts, write_artifact
 from dla.kpi.workbook import normalize_table_ref, resolve_dimensions, validate_source_tables
 
 _SLUG_RE = re.compile(r"[^a-z0-9_]+")
@@ -80,8 +80,11 @@ def save_kpi(
         owner=owner,
     )
     write_artifact(bundle_root, payload, body=business_definition, force=True)
+    refresh_manifest_counts(bundle_root, source_id=source_id)
     return payload
 
 
 def _write(bundle_root: Path, kpi: KpiPayload) -> WriteResult:
-    return write_artifact(bundle_root, kpi, body=kpi.business_definition, force=True)
+    result = write_artifact(bundle_root, kpi, body=kpi.business_definition, force=True)
+    refresh_manifest_counts(bundle_root, source_id=kpi.source_id)
+    return result

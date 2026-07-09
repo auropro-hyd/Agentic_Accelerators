@@ -113,6 +113,18 @@ class PostgresConnector:
             metadata.reflect(bind=self._engine, schema=schema, views=False)
 
             for sa_table in metadata.tables.values():
+                # `reflect(resolve_fks=True)` (the default, kept deliberately so
+                # cross-schema FK *columns* are resolvable) also pulls the FK
+                # target tables — and their own FK closure — into this pass's
+                # MetaData even when they belong to another schema. Emitting
+                # those here would double-count them (D1: manifest said 130
+                # tables when 125 exist on disk), so only tables that actually
+                # belong to the schema being introspected are emitted. Their
+                # home-schema pass emits them (each configured schema gets its
+                # own pass), and the FKs *from* this schema's tables still
+                # reference them, so cross-schema relationships survive.
+                if sa_table.schema != schema:
+                    continue
                 table_name = sa_table.fullname  # schema-qualified
                 columns: list[RawColumn] = []
                 pk_cols = list(sa_table.primary_key.columns.keys())

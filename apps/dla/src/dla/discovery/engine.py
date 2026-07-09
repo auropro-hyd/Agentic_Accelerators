@@ -10,8 +10,6 @@ from auropro_core.logging import get_logger, log_context
 
 from dla.bundle.provenance import Provenance
 from dla.bundle.schema import (
-    ArtifactType,
-    BundleManifest,
     ColumnPayload,
     CreatedBy,
     IndexPayload,
@@ -23,9 +21,8 @@ from dla.bundle.schema import (
 from dla.bundle.writer import (
     WriteResult,
     now_utc,
-    update_artifact_counts,
+    refresh_manifest_counts,
     write_artifact,
-    write_manifest,
 )
 from dla.config.models import Config
 from dla.connectors.base import (
@@ -321,21 +318,10 @@ def discover(
         )
         write_artifact(bundle_root, source_payload, body=f"# Source: {cfg.source.display_name}\n")
 
-        manifest = BundleManifest(
-            source_id=cfg.source.source_id,
-            last_run_at=now,
-            bundle_root=str(bundle_root),
-        )
-        update_artifact_counts(
-            manifest,
-            {
-                ArtifactType.TABLE: report.tables_written,
-                ArtifactType.COLUMN: report.columns_written,
-                ArtifactType.RELATIONSHIP: report.relationships_written,
-                ArtifactType.INDEX: report.indexes_written,
-            },
-        )
-        write_manifest(bundle_root, manifest)
+        # Manifest counts are recounted from disk (not from this run's write
+        # tally) so they stay correct even when artifacts are SME-preserved,
+        # and so every artifact type — not just the schema ones — is covered.
+        refresh_manifest_counts(bundle_root, source_id=cfg.source.source_id)
 
         connector.close()
 

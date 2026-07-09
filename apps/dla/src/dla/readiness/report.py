@@ -20,7 +20,7 @@ from dla.bundle.schema import (
     Severity,
     TablePayload,
 )
-from dla.bundle.writer import now_utc, write_artifact
+from dla.bundle.writer import now_utc, refresh_manifest_counts, write_artifact
 from dla.config.models import Config
 from dla.connectors.base import SourceConnector
 from dla.readiness.checks import (
@@ -222,6 +222,7 @@ def assemble(
         issues_by_type[issue.issue_type.value] = issues_by_type.get(issue.issue_type.value, 0) + 1
 
     _write_summary_md(bundle_root, written)
+    refresh_manifest_counts(bundle_root, source_id=cfg.source.source_id)
 
     return ReadinessReport(
         source_id=cfg.source.source_id,

@@ -28,7 +28,12 @@ from typing import Any
 import frontmatter
 from pydantic import BaseModel
 
-from dla.bundle.layout import ensure_layout, manifest_path, paths_for
+from dla.bundle.layout import (
+    count_artifacts_on_disk,
+    ensure_layout,
+    manifest_path,
+    paths_for,
+)
 from dla.bundle.provenance import (
     Provenance,
     assert_transition_allowed,
@@ -222,6 +227,46 @@ def write_manifest(bundle_root: Path, manifest: BundleManifest) -> Path:
     return path
 
 
+def refresh_manifest_counts(
+    bundle_root: Path, *, source_id: str | None = None
+) -> BundleManifest | None:
+    """Recount every artifact type from disk and refresh `bundle.json` (D16).
+
+    Called by every writing command (discover, profile, readiness, describe,
+    glossary, patterns, kpi, hierarchy, import, reconcile, recommend) so the
+    manifest's `artifact_counts` always reflects what is actually on disk —
+    not just what the last `discover` wrote.
+
+    Idempotency-preserving by construction: the manifest file is rewritten
+    (and `last_run_at` moves) **only when the recounted `artifact_counts`
+    differ** from what the manifest already says — `write_manifest` no-ops
+    when the content modulo `last_run_at` is unchanged. Re-running a command
+    over an unchanged bundle therefore produces zero diffs, not even mtimes.
+
+    When no manifest exists yet, one is seeded — but only if the caller can
+    supply a `source_id` (otherwise this is a no-op returning None).
+    """
+    manifest: BundleManifest | None = None
+    existing = _read_existing_json(manifest_path(bundle_root))
+    if existing is not None:
+        try:
+            manifest = BundleManifest.model_validate(existing)
+        except Exception:
+            manifest = None  # corrupt manifest — rebuild below if we can
+    if manifest is None:
+        if source_id is None:
+            return None
+        manifest = BundleManifest(
+            source_id=source_id,
+            last_run_at=now_utc(),
+            bundle_root=str(bundle_root),
+        )
+    manifest.artifact_counts = count_artifacts_on_disk(bundle_root)
+    manifest.last_run_at = now_utc()
+    write_manifest(bundle_root, manifest)
+    return manifest
+
+
 def now_utc() -> datetime:
     """Single source of `created_at`/`updated_at` values — easy to monkeypatch in tests."""
     return datetime.now(UTC)
@@ -239,6 +284,7 @@ def update_artifact_counts(manifest: BundleManifest, counts: dict[ArtifactType, 
 __all__ = [
     "WriteResult",
     "now_utc",
+    "refresh_manifest_counts",
     "update_artifact_counts",
     "write_artifact",
     "write_manifest",
