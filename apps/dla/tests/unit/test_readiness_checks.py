@@ -14,13 +14,16 @@ from dla.bundle.schema import (
     ProfileMode,
     ProfilePayload,
     ProfileStatus,
+    RelationshipPayload,
     Severity,
     TablePayload,
 )
 from dla.config.models import ThresholdsConfig
 from dla.readiness.checks import (
+    check_broken_fk,
     check_column_from_profile,
     check_empty_table,
+    check_type_mismatch,
 )
 
 
@@ -192,3 +195,175 @@ def test_empty_table_not_detected_when_any_profile_has_rows() -> None:
     profile_empty = _profile(column=_column("col_empty"), sample_size=0)
     profile_nonempty = _profile(column=col, sample_size=5, distinct_count=3)
     assert check_empty_table(table, [profile_empty, profile_nonempty], ThresholdsConfig()) is None
+
+
+# --- broken_fk type coercion (D5) ---
+
+
+class _StubConnector:
+    """Just enough of SourceConnector for check_broken_fk."""
+
+    def __init__(self, samples: dict[tuple[str, str], list[Any]]) -> None:
+        self._samples = samples
+
+    def sample_column(self, table: str, column: str, n: int) -> list[Any]:
+        return self._samples.get((table, column), [])[:n]
+
+
+def _relationship() -> RelationshipPayload:
+    return RelationshipPayload(
+        artifact_id="relationship:staging.stg_shipments:stg_order_id->staging.stg_orders:id",
+        source_id="test_source",
+        provenance=Provenance.DISCOVERED,
+        created_at=_now(),
+        updated_at=_now(),
+        created_by=CreatedBy.ACCELERATOR,
+        from_column_ref="column:staging.stg_shipments:stg_order_id",
+        to_column_ref="column:staging.stg_orders:id",
+        relationship_type="inferred_fk",
+        signals=["name_match"],
+    )
+
+
+def _run_broken_fk(child_values: list[Any], parent_values: list[Any]):
+    connector = _StubConnector(
+        {
+            ("staging.stg_shipments", "stg_order_id"): child_values,
+            ("staging.stg_orders", "id"): parent_values,
+        }
+    )
+    return check_broken_fk(
+        _relationship(),
+        connector,  # type: ignore[arg-type]
+        sample_size=100,
+        table_name_by_column_ref={
+            "column:staging.stg_shipments:stg_order_id": "staging.stg_shipments",
+            "column:staging.stg_orders:id": "staging.stg_orders",
+        },
+        column_name_by_ref={
+            "column:staging.stg_shipments:stg_order_id": "stg_order_id",
+            "column:staging.stg_orders:id": "id",
+        },
+        thresholds=ThresholdsConfig(),
+    )
+
+
+def test_broken_fk_varchar_int_equal_values_not_orphans() -> None:
+    """D5 regression: '2' in a varchar child equals 2 in an int parent."""
+    issue = _run_broken_fk(["1", "2", "3"], [1, 2, 3])
+    assert issue is None
+
+
+def test_broken_fk_varchar_int_genuine_orphans_still_detected() -> None:
+    issue = _run_broken_fk(["1", "900001", "2"], [1, 2, 3])
+    assert issue is not None
+    assert issue.details["orphan_count_in_sample"] == 1
+    assert issue.details["sample_examples"] == ["900001"]
+    assert issue.details["value_coercion"] == "child string values compared as integers"
+
+
+def test_broken_fk_int_child_varchar_parent_coerced() -> None:
+    issue = _run_broken_fk([1, 2], ["1", "2", "3"])
+    assert issue is None
+
+
+def test_broken_fk_non_numeric_strings_stay_orphans() -> None:
+    issue = _run_broken_fk(["abc", "1"], [1, 2])
+    assert issue is not None
+    assert issue.details["sample_examples"] == ["abc"]
+
+
+def test_broken_fk_coercion_is_exact_roundtrip_only() -> None:
+    """'007' is not claimed equal to 7 — coercion only on canonical renderings."""
+    issue = _run_broken_fk(["007", "7"], [7])
+    assert issue is not None
+    assert issue.details["sample_examples"] == ["007"]
+
+
+def test_broken_fk_same_type_sides_unchanged() -> None:
+    """No coercion within a single type: string-vs-string keeps exact compare."""
+    issue = _run_broken_fk(["007"], ["7"])
+    assert issue is not None
+    assert "value_coercion" not in issue.details
+    issue_int = _run_broken_fk([5], [1, 2])
+    assert issue_int is not None
+    assert issue_int.details["orphan_count_in_sample"] == 1
+
+
+def test_broken_fk_mixed_side_falls_back_to_exact_compare() -> None:
+    """A side mixing ints and strings is not coerced (conservative)."""
+    issue = _run_broken_fk(["1", 2], [1, 2])
+    assert issue is not None  # '1' != 1 under repr comparison
+
+
+# --- type_mismatch readiness check (FR-007) ---
+
+
+def _typed_column(ref: str, name: str, data_type: str, ntype: NormalizedType) -> ColumnPayload:
+    return ColumnPayload(
+        artifact_id=ref,
+        source_id="test_source",
+        provenance=Provenance.DISCOVERED,
+        created_at=_now(),
+        updated_at=_now(),
+        created_by=CreatedBy.ACCELERATOR,
+        name=name,
+        table_ref="table:" + ref.split(":")[1],
+        data_type=data_type,
+        normalized_type=ntype,
+        is_nullable=True,
+        is_pk=False,
+        is_unique=False,
+    )
+
+
+def test_type_mismatch_warning_on_mismatched_endpoints() -> None:
+    rel = _relationship()
+    cols = {
+        rel.from_column_ref: _typed_column(
+            rel.from_column_ref, "stg_order_id", "VARCHAR(16)", NormalizedType.STRING
+        ),
+        rel.to_column_ref: _typed_column(
+            rel.to_column_ref, "id", "INTEGER", NormalizedType.INTEGER
+        ),
+    }
+    issue = check_type_mismatch(rel, columns_by_ref=cols, thresholds=ThresholdsConfig())
+    assert issue is not None
+    assert issue.issue_type is IssueType.TYPE_MISMATCH
+    assert issue.severity is Severity.WARNING
+    assert issue.details["from_type"] == "VARCHAR(16)"
+    assert issue.details["to_type"] == "INTEGER"
+    assert issue.details["from_column_ref"] == rel.from_column_ref
+    assert issue.details["to_column_ref"] == rel.to_column_ref
+    assert issue.suggestion is not None
+
+
+def test_type_mismatch_none_when_types_agree() -> None:
+    rel = _relationship()
+    cols = {
+        rel.from_column_ref: _typed_column(
+            rel.from_column_ref, "stg_order_id", "BIGINT", NormalizedType.INTEGER
+        ),
+        rel.to_column_ref: _typed_column(
+            rel.to_column_ref, "id", "INTEGER", NormalizedType.INTEGER
+        ),
+    }
+    assert check_type_mismatch(rel, columns_by_ref=cols, thresholds=ThresholdsConfig()) is None
+
+
+def test_type_mismatch_skips_unknown_types() -> None:
+    rel = _relationship()
+    cols = {
+        rel.from_column_ref: _typed_column(
+            rel.from_column_ref, "stg_order_id", "custom_domain", NormalizedType.UNKNOWN
+        ),
+        rel.to_column_ref: _typed_column(
+            rel.to_column_ref, "id", "INTEGER", NormalizedType.INTEGER
+        ),
+    }
+    assert check_type_mismatch(rel, columns_by_ref=cols, thresholds=ThresholdsConfig()) is None
+
+
+def test_type_mismatch_skips_unresolvable_endpoints() -> None:
+    rel = _relationship()
+    assert check_type_mismatch(rel, columns_by_ref={}, thresholds=ThresholdsConfig()) is None

@@ -20,41 +20,52 @@ _TS = datetime(2026, 1, 1, tzinfo=UTC)
 _C: dict[str, Any] = dict(source_id="s", created_at=_TS, updated_at=_TS, created_by=CreatedBy.ACCELERATOR)
 
 
-def _col(ntype: NormalizedType) -> ColumnPayload:
+def _col(ntype: NormalizedType, data_type: str | None = None) -> ColumnPayload:
     return ColumnPayload(
         artifact_id="column:public.t:c", provenance=Provenance.DISCOVERED, name="c",
-        table_ref="table:public.t", data_type=str(ntype), normalized_type=ntype,
+        table_ref="table:public.t", data_type=data_type or str(ntype), normalized_type=ntype,
         is_nullable=True, is_pk=False, is_unique=False, **_C,
     )
 
 
-# (doc_data_type, discovered_normalized_type | None as gap, expected_bucket)
-_GOLDEN: list[tuple[str | None, NormalizedType | None, ReconciliationBucket]] = [
+# (doc_data_type, discovered (normalized_type, raw_data_type) | None as gap, expected_bucket)
+_Discovered = tuple[NormalizedType, str] | None
+_GOLDEN: list[tuple[str | None, _Discovered, ReconciliationBucket]] = [
     # --- matches: compatible types ---
-    ("varchar", NormalizedType.STRING, ReconciliationBucket.MATCH),
-    ("text", NormalizedType.STRING, ReconciliationBucket.MATCH),
-    ("char(3)", NormalizedType.STRING, ReconciliationBucket.MATCH),
-    ("integer", NormalizedType.INTEGER, ReconciliationBucket.MATCH),
-    ("bigint", NormalizedType.INTEGER, ReconciliationBucket.MATCH),
-    ("numeric", NormalizedType.DECIMAL, ReconciliationBucket.MATCH),
-    ("decimal(10,2)", NormalizedType.DECIMAL, ReconciliationBucket.MATCH),
-    ("boolean", NormalizedType.BOOLEAN, ReconciliationBucket.MATCH),
-    ("date", NormalizedType.DATE, ReconciliationBucket.MATCH),
-    ("timestamp", NormalizedType.DATETIME, ReconciliationBucket.MATCH),
+    ("varchar", (NormalizedType.STRING, "VARCHAR(64)"), ReconciliationBucket.MATCH),
+    ("text", (NormalizedType.STRING, "TEXT"), ReconciliationBucket.MATCH),
+    ("char(3)", (NormalizedType.STRING, "CHAR(3)"), ReconciliationBucket.MATCH),
+    ("integer", (NormalizedType.INTEGER, "INTEGER"), ReconciliationBucket.MATCH),
+    ("bigint", (NormalizedType.INTEGER, "BIGINT"), ReconciliationBucket.MATCH),
+    ("numeric", (NormalizedType.DECIMAL, "NUMERIC"), ReconciliationBucket.MATCH),
+    ("decimal(10,2)", (NormalizedType.DECIMAL, "NUMERIC(10, 2)"), ReconciliationBucket.MATCH),
+    ("boolean", (NormalizedType.BOOLEAN, "BOOLEAN"), ReconciliationBucket.MATCH),
+    ("date", (NormalizedType.DATE, "DATE"), ReconciliationBucket.MATCH),
+    ("timestamp", (NormalizedType.DATETIME, "TIMESTAMP"), ReconciliationBucket.MATCH),
+    # --- matches: concrete-type synonyms across spellings (D8 non-conflicts) ---
+    ("varchar(255)", (NormalizedType.STRING, "TEXT"), ReconciliationBucket.MATCH),
+    ("character varying", (NormalizedType.STRING, "VARCHAR(32)"), ReconciliationBucket.MATCH),
+    ("int4", (NormalizedType.INTEGER, "INTEGER"), ReconciliationBucket.MATCH),
+    ("int", (NormalizedType.INTEGER, "BIGINT"), ReconciliationBucket.MATCH),
+    ("double precision", (NormalizedType.DECIMAL, "NUMERIC(10, 2)"), ReconciliationBucket.MATCH),
     # --- matches: no doc type → no contradiction detectable ---
-    (None, NormalizedType.STRING, ReconciliationBucket.MATCH),
-    (None, NormalizedType.INTEGER, ReconciliationBucket.MATCH),
-    ("", NormalizedType.DECIMAL, ReconciliationBucket.MATCH),
-    # --- conflicts: incompatible types ---
-    ("varchar", NormalizedType.INTEGER, ReconciliationBucket.CONFLICT),
-    ("integer", NormalizedType.STRING, ReconciliationBucket.CONFLICT),
-    ("date", NormalizedType.STRING, ReconciliationBucket.CONFLICT),
-    ("boolean", NormalizedType.INTEGER, ReconciliationBucket.CONFLICT),
-    ("numeric", NormalizedType.STRING, ReconciliationBucket.CONFLICT),
-    ("text", NormalizedType.DATETIME, ReconciliationBucket.CONFLICT),
-    ("timestamp", NormalizedType.INTEGER, ReconciliationBucket.CONFLICT),
-    ("integer", NormalizedType.DECIMAL, ReconciliationBucket.CONFLICT),
-    ("bigint", NormalizedType.BOOLEAN, ReconciliationBucket.CONFLICT),
+    (None, (NormalizedType.STRING, "TEXT"), ReconciliationBucket.MATCH),
+    (None, (NormalizedType.INTEGER, "INTEGER"), ReconciliationBucket.MATCH),
+    ("", (NormalizedType.DECIMAL, "NUMERIC"), ReconciliationBucket.MATCH),
+    # --- conflicts: incompatible normalized types ---
+    ("varchar", (NormalizedType.INTEGER, "INTEGER"), ReconciliationBucket.CONFLICT),
+    ("integer", (NormalizedType.STRING, "TEXT"), ReconciliationBucket.CONFLICT),
+    ("date", (NormalizedType.STRING, "VARCHAR(10)"), ReconciliationBucket.CONFLICT),
+    ("boolean", (NormalizedType.INTEGER, "SMALLINT"), ReconciliationBucket.CONFLICT),
+    ("numeric", (NormalizedType.STRING, "TEXT"), ReconciliationBucket.CONFLICT),
+    ("text", (NormalizedType.DATETIME, "TIMESTAMP"), ReconciliationBucket.CONFLICT),
+    ("timestamp", (NormalizedType.INTEGER, "INTEGER"), ReconciliationBucket.CONFLICT),
+    ("integer", (NormalizedType.DECIMAL, "NUMERIC(10, 2)"), ReconciliationBucket.CONFLICT),
+    ("bigint", (NormalizedType.BOOLEAN, "BOOLEAN"), ReconciliationBucket.CONFLICT),
+    # --- conflicts: same normalized type, contradicting concrete family (D8) ---
+    ("money", (NormalizedType.DECIMAL, "NUMERIC(10, 2)"), ReconciliationBucket.CONFLICT),
+    ("numeric(12,2)", (NormalizedType.DECIMAL, "MONEY"), ReconciliationBucket.CONFLICT),
+    ("money", (NormalizedType.DECIMAL, "DOUBLE PRECISION"), ReconciliationBucket.CONFLICT),
     # --- gap-doc-only: no matched discovered artifact ---
     ("varchar", None, ReconciliationBucket.GAP_DOC_ONLY),
     ("integer", None, ReconciliationBucket.GAP_DOC_ONLY),
@@ -69,11 +80,11 @@ _GOLDEN: list[tuple[str | None, NormalizedType | None, ReconciliationBucket]] = 
 
 @pytest.mark.eval
 def test_reconciliation_bucketing_accuracy() -> None:
-    assert len(_GOLDEN) == 30
+    assert len(_GOLDEN) == 38
     correct = 0
-    for doc_type, ntype, expected in _GOLDEN:
-        matched_ref = None if ntype is None else "column:public.t:c"
-        col = None if ntype is None else _col(ntype)
+    for doc_type, discovered, expected in _GOLDEN:
+        matched_ref = None if discovered is None else "column:public.t:c"
+        col = None if discovered is None else _col(discovered[0], discovered[1])
         bucket, _ = classify(matched_ref=matched_ref, doc_data_type=doc_type, discovered_column=col)
         correct += int(bucket == expected)
     accuracy = correct / len(_GOLDEN)
