@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dla_fixture_postgres_large
+    environment:
+      POSTGRES_DB: dla_fixture_large
+      POSTGRES_USER: dla
+      POSTGRES_PASSWORD: dla_dev_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "55433:5432"
+    volumes:
+      - ./seed:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dla -d dla_fixture_large"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
