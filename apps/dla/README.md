@@ -133,7 +133,7 @@ contributed (`declared_fk`, `name_match`, `type_match`,
 | Severity   | Examples                                                                                |
 | ---------- | --------------------------------------------------------------------------------------- |
 | `Critical` | Broken foreign key, empty table, all-null column.                                       |
-| `Warning`  | Column with high null rate (≥ 50%), type mismatch (planned).                            |
+| `Warning`  | Column with high null rate (≥ 50%), relationship whose endpoint column types mismatch (`type_mismatch`). |
 | `Info`     | Constant-value column (tiny samples), unprofiled or errored column (permission denied, profiling failure, etc.). |
 
 Each issue carries a structured `details` block and a plain-language

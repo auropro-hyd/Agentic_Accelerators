@@ -24,7 +24,7 @@ than the plan, deliberately).
 | **Real-database / end-to-end integration tests** | SC-001/002/009/012 | A Postgres compose + seed exists, but tests run against hand-seeded in-memory bundles. The full `dla run` against a live Postgres (and the <30s discovery / <2min profile / <10min pipeline perf numbers) is not yet exercised in CI. Highest-value hardening item. |
 | **Description-quality eval (LLM-as-judge)** | SC-003 / FR-026 / Constitution VII | Reconciliation and glossary-extractor evals exist; the description eval (20 goldens, judge ≥4/5 on ≥70%) does not. The flagship AI output currently ships without its measurement gate. |
 | **`INSUFFICIENT_SIGNAL` for descriptions** | FR-011 / US 3.2 | Implemented for the glossary generator only. The describe engine surfaces low-confidence columns via the review queue (Weak/unprofiled/readiness ordering) rather than emitting the sentinel. Behavioural workaround, not the spec's literal contract. |
-| **`type_mismatch` readiness check** | FR-007 | Six of seven readiness checks ship; `type_mismatch` is a declared enum value with no detector yet. |
+| **`type_mismatch` readiness check** | FR-007 | **Done (L1 hardening, Wave 4).** A relationship whose endpoint columns have mismatched normalized types now raises a `type_mismatch` Warning (`readiness/checks.py::check_type_mismatch`). |
 | **Chunked-fetch / OOM guard in profiling** | tasks T059 | Large-column profiling has no streaming guard; low risk on current fixtures. |
 
 ## Changed (built differently, on purpose)
