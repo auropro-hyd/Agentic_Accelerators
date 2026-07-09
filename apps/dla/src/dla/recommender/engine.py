@@ -108,10 +108,17 @@ def _confidence(
 
 def _reasoning(top: StrategyScore, scores: list[StrategyScore]) -> str:
     others = ", ".join(sc.strategy.value for sc in scores[1:])
-    return (
+    text = (
         f"Recommended '{top.strategy.value}' (score {top.points}): {top.rationale}. "
         f"Chosen over {others}."
     )
+    if len(scores) > 1 and scores[1].points == top.points:
+        # Make the tie-break visible in the artifact, not just in code (W7/D4).
+        text += (
+            " Scores were tied; the tie was broken by explicit precedence toward "
+            "the simpler-to-operate strategy (plain_schema > vector > knowledge_graph)."
+        )
+    return text
 
 
 def _alternatives(scores: list[StrategyScore], top_points: int) -> list[dict[str, object]]:

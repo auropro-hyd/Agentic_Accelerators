@@ -159,8 +159,14 @@ class ThresholdsConfig(BaseModel):
     """Average free-text length (chars) at/above which `vector` is favored."""
     recommender_graph_junction_count: int = 2
     """>= this many junction/bridge tables is a signal toward `knowledge_graph`."""
+    recommender_graph_junction_rich: int = 4
+    """>= this many junction tables marks the schema *junction-rich* (W7/D4):
+    heavy many-to-many structure defines a graph domain, so knowledge_graph
+    earns a dominance bonus that can out-rank even maximal text evidence."""
     recommender_graph_rel_density: float = 1.5
-    """Relationships-per-table at/above which `knowledge_graph` is favored."""
+    """Relationships per *connected* table at/above which `knowledge_graph` is
+    favored (W7/D4: density over all tables let distractor/no-FK tables dilute
+    the signal on wide warehouses)."""
 
 
 class LLMConfig(_BaseLLMConfig):
