@@ -39,19 +39,30 @@ export DLA_DB_PASSWORD=dla_dev_password
 
 ## Pattern-detection ground truth (declared-FK graph only)
 
-- **Star facts** (≥2 FK targets + own measures): sales `fact_sales`, `fact_returns`,
-  `fact_shipments`, `fact_inventory_snapshots`, `product_reviews`*, `customer_notes`†;
-  finance `fact_invoices`, `fact_payments`, `fact_ledger_entries`, `fact_budgets`,
-  and other multi-FK tables that satisfy the shape (`hr.employees`,
-  `hr.payroll_items`, `hr.performance_reviews`, …). *Text tables that reference two
-  dims legitimately satisfy the detector's structural definition.
-- **Junctions** (≥2 FK targets, ≤2 non-FK columns): `bridge_product_suppliers`,
-  `bridge_customer_segments`, `bridge_promotion_channels`, `invoice_payments`,
-  `vendor_contract_links`, `employee_skills`, `employee_benefits`,
-  `employee_training`, `job_history`.
+- **Star facts** (≥2 FK targets + ≥2 non-key measure/attribute columns): sales
+  `fact_sales`, `fact_returns`, `fact_shipments`, `fact_inventory_snapshots`
+  (compact composite-PK fact — its two measures keep it out of the junction
+  bucket), `product_reviews`*; finance `fact_invoices`, `fact_payments`,
+  `fact_ledger_entries`, `fact_budgets`, `fact_invoice_lines`; hr
+  `hr.payroll_items` and other multi-FK tables that satisfy the shape.
+  *Text tables that reference two dims legitimately satisfy the detector's
+  structural definition.
+  **Not** star facts: `hr.employees` (master data — referenced as a dimension
+  by many tables and mostly own attributes, excluded by the master-data
+  guard); `customer_notes` / `hr.performance_reviews` (only one *distinct*
+  FK-target table).
+- **Junctions** (≥2 FK targets, ≤1 column that is neither FK-participating
+  nor part of the PK): `bridge_product_suppliers`, `bridge_customer_segments`,
+  `bridge_promotion_channels`, `invoice_payments`, `vendor_contract_links`,
+  `employee_skills`, `employee_benefits`, `employee_training`, `job_history`.
+  Compact facts with ≥2 own measure columns (`fact_inventory_snapshots`,
+  `staging.stg_inventory`) are **not** junctions.
 - **Snowflakes**: every star fact whose dim itself references onward
-  (product/store chains in sales; `fact_payments`/`fact_ledger_entries` via
-  self-referencing `dim_accounts`).
+  (product/store chains in sales). Self-referencing FKs are excluded from the
+  pattern graph by design, so snowflakes reachable only through a
+  self-reference — `fact_payments`/`fact_ledger_entries` via
+  `dim_accounts.parent_account_id` — are **undetectable** (documented
+  limitation, see `dla/patterns/base.py`).
 - The `staging` schema should contribute **no declared** relationships — only
   inferred ones.
 
