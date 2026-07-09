@@ -25,6 +25,7 @@ _TRACKED: tuple[ArtifactType, ...] = (
     ArtifactType.GLOSSARY_ENTRY,
     ArtifactType.IMPORTED_ARTIFACT,
     ArtifactType.KPI,
+    ArtifactType.HIERARCHY,
 )
 
 

@@ -102,6 +102,7 @@ bundle/
 ├── glossary/                                # recurring business terms (M6)
 ├── patterns/                                # detected star/snowflake/junction/audit shapes (M6)
 ├── kpi/                                     # SME-authored KPI workbook entries (M7)
+├── hierarchies/                             # SME-authored dimension drill-down hierarchies
 ├── coverage/                                # SME review coverage per artifact type (M7)
 ├── term_mappings/                           # SME term-mapping rules (M7)
 ├── imports/                                 # client-doc import + reconciliation (M5)
@@ -402,9 +403,13 @@ finds unchanged usages costs nothing (pass `--force` to re-draft anyway).
 
 `dla kpi add` records a subject-matter expert's KPI definition in the
 workbook under `kpi/`: each entry captures the formula, its grain, the
-owner, and the source tables it draws from. `dla coverage` reports how
-much of the bundle a reviewer has signed off on, broken down per artifact
-type.
+owner, the source tables it draws from, and the **dimensions it can be
+sliced by** — each dimension is resolved to a discovered column (and
+rejected if missing or ambiguous), so a downstream consumer can enumerate
+"metric × dimension" combinations without guessing. `dla hierarchy add`
+records a dimension's drill-down order (year → quarter → month), each
+level validated against the schema. `dla coverage` reports how much of
+the bundle a reviewer has signed off on, broken down per artifact type.
 
 ```bash
 # Add a KPI to the workbook (all listed flags are required):
@@ -414,7 +419,14 @@ uv run dla kpi add --config config/examples/postgres_minimal.yaml \
   --formula "count(distinct customer_id)" \
   --grain "one row per calendar month" \
   --owner "Data Steward" \
-  --source-tables "public.orders,public.customers"
+  --source-tables "public.orders,public.customers" \
+  --dimensions "region,order_date"
+
+# Record a drill-down hierarchy (levels coarsest → finest):
+uv run dla hierarchy add --config config/examples/postgres_minimal.yaml \
+  --name date_rollup --dimension date \
+  --level "year=public.orders.order_date" \
+  --level "month=public.orders.order_date"
 
 # Report review coverage per artifact type:
 uv run dla coverage --config config/examples/postgres_minimal.yaml
@@ -507,7 +519,8 @@ controls where output lands.
 | `dla reconcile --config <yaml> --bucket <name>` / `--auto-confirm-matches` | List one bucket, or accept all `match` items in bulk.                                                          |
 | `dla glossary build --config <yaml> --mode {live,dry-run}`             | Extract recurring schema terms and draft a definition for each (flags: `--min-recurrence`, `--force`).            |
 | `dla patterns detect --config <yaml>`                                  | Run all structural detectors over the schema and write `bundle/patterns/*` (star, snowflake, junction, audit).     |
-| `dla kpi add --config <yaml> --name --definition --formula --grain --owner --source-tables` | Add (or update) a KPI in the workbook (optional: `--formula-kind`, `--dimensions`).            |
+| `dla kpi add --config <yaml> --name --definition --formula --grain --owner --source-tables` | Add (or update) a KPI in the workbook (optional: `--formula-kind`, `--dimensions`). Dimensions are resolved to discovered columns and rejected if missing/ambiguous; `--skip-dimension-validation` records conceptual dimensions as labels only. |
+| `dla hierarchy add --config <yaml> --name --level name=schema.table.column ...`             | Record a dimension drill-down hierarchy (levels coarsest→finest, each validated to a discovered column; optional: `--dimension`, `--description`). |
 | `dla coverage --config <yaml> --format {table,json}`                   | Report SME review coverage per artifact type.                                                                     |
 | `dla recommend --config <yaml> --explain`                              | Recommend a downstream strategy (`plain_schema` / `vector` / `knowledge_graph`); `--explain` prints reasoning, signals, and alternatives. |
 | `dla recommend --config <yaml> --override <strategy> --reason <text>`  | Record an SME override of the recommended strategy (both flags required).                                          |
@@ -668,6 +681,7 @@ fails fast with exit code 3 if a required variable is unset.
 │   ├── glossary/                 # recurring-term extraction + definition drafting (M6)
 │   ├── patterns/                 # structural detectors: star, snowflake, junction, audit (M6)
 │   ├── kpi/                      # KPI workbook models + writer (M7)
+│   ├── hierarchy/                # dimension drill-down hierarchies (M7 extension)
 │   ├── coverage/                 # SME review-coverage analysis (M7)
 │   ├── recommender/              # deterministic strategy recommender (M8)
 │   └── orchestrator/             # end-to-end pipeline runner + resumable run state (M8)

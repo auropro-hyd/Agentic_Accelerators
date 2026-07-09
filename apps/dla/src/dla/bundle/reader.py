@@ -14,6 +14,7 @@ from dla.bundle.schema import (
     CommonFields,
     DescriptionPayload,
     GlossaryEntryPayload,
+    HierarchyPayload,
     ImportedArtifactPayload,
     IndexPayload,
     KpiPayload,
@@ -42,6 +43,7 @@ _MODEL_FOR_TYPE: dict[ArtifactType, type[CommonFields]] = {
     ArtifactType.GLOSSARY_ENTRY: GlossaryEntryPayload,
     ArtifactType.PATTERN: PatternPayload,
     ArtifactType.KPI: KpiPayload,
+    ArtifactType.HIERARCHY: HierarchyPayload,
     ArtifactType.TERM_MAPPING_RULE: TermMappingRulePayload,
     ArtifactType.RECOMMENDATION: RecommendationPayload,
 }

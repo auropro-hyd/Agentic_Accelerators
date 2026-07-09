@@ -17,6 +17,7 @@
         "glossary_entry",
         "pattern",
         "kpi",
+        "hierarchy",
         "imported_artifact",
         "reconciliation_result",
         "term_mapping_rule",
@@ -538,6 +539,190 @@
       "title": "GlossaryEntryPayload",
       "type": "object"
     },
+    "HierarchyLevel": {
+      "additionalProperties": false,
+      "description": "One level of a dimension hierarchy: a label plus the column it maps to.",
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "column_ref": {
+          "minLength": 1,
+          "title": "Column Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "column_ref"
+      ],
+      "title": "HierarchyLevel",
+      "type": "object"
+    },
+    "HierarchyPayload": {
+      "additionalProperties": false,
+      "description": "A dimension drill-down hierarchy (SME-authored).\n\nLevels are ordered **coarsest to finest** (e.g. year \u2192 quarter \u2192 month).\nDownstream consumers use hierarchies to offer drill-down paths\n(\"executive summary \u2192 specific point\") without inventing them.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "hierarchy",
+          "default": "hierarchy",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "dimension": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dimension"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "levels": {
+          "items": {
+            "$ref": "#/$defs/HierarchyLevel"
+          },
+          "minItems": 2,
+          "title": "Levels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "name",
+        "levels"
+      ],
+      "title": "HierarchyPayload",
+      "type": "object"
+    },
     "ImportedArtifactPayload": {
       "additionalProperties": false,
       "description": "One record imported from client documentation (data-model.md \u00a7E9).",
@@ -857,7 +1042,7 @@
     },
     "KpiPayload": {
       "additionalProperties": false,
-      "description": "One KPI defined in the workbook (\u00a7E8). SME-authored in v1.",
+      "description": "One KPI defined in the workbook (\u00a7E8). SME-authored in v1.\n\n`dimensions` holds the dimension labels exactly as the SME entered them\n(e.g. `region`, `public.customers.region`). `dimension_refs` holds the\ncorresponding resolved `column:` artifact ids for every dimension that was\nvalidated against the discovered schema \u2014 this is what downstream\nconsumers (the knowledge-representation layer) enumerate to offer\n\"metric by dimension\" menus without guessing. A dimension deliberately\nsaved unvalidated (conceptual, e.g. `fiscal_period`) appears in\n`dimensions` but has no entry in `dimension_refs`.",
       "properties": {
         "artifact_id": {
           "minLength": 1,
@@ -991,6 +1176,13 @@
             "type": "string"
           },
           "title": "Dimensions",
+          "type": "array"
+        },
+        "dimension_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dimension Refs",
           "type": "array"
         },
         "source_table_refs": {
@@ -2629,6 +2821,7 @@
       "column": "#/$defs/ColumnPayload",
       "description": "#/$defs/DescriptionPayload",
       "glossary_entry": "#/$defs/GlossaryEntryPayload",
+      "hierarchy": "#/$defs/HierarchyPayload",
       "imported_artifact": "#/$defs/ImportedArtifactPayload",
       "index": "#/$defs/IndexPayload",
       "kpi": "#/$defs/KpiPayload",
@@ -2677,6 +2870,9 @@
     },
     {
       "$ref": "#/$defs/KpiPayload"
+    },
+    {
+      "$ref": "#/$defs/HierarchyPayload"
     },
     {
       "$ref": "#/$defs/ImportedArtifactPayload"

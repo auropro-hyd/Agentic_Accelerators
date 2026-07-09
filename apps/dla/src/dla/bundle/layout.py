@@ -24,6 +24,7 @@ _DIRECTORY_FOR_TYPE: dict[ArtifactType, tuple[str, ...]] = {
     ArtifactType.GLOSSARY_ENTRY: ("glossary",),
     ArtifactType.PATTERN: ("patterns",),
     ArtifactType.KPI: ("kpi",),
+    ArtifactType.HIERARCHY: ("hierarchies",),
     ArtifactType.IMPORTED_ARTIFACT: ("imports", "artifacts"),
     ArtifactType.RECONCILIATION_RESULT: ("imports", "reconciliation"),
     ArtifactType.TERM_MAPPING_RULE: ("term_mappings",),

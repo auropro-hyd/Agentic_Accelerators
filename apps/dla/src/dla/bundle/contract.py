@@ -19,6 +19,7 @@ from dla.bundle.schema import (
     ColumnPayload,
     DescriptionPayload,
     GlossaryEntryPayload,
+    HierarchyPayload,
     ImportedArtifactPayload,
     IndexPayload,
     KpiPayload,
@@ -50,6 +51,7 @@ _ArtifactUnion = Annotated[
     | GlossaryEntryPayload
     | PatternPayload
     | KpiPayload
+    | HierarchyPayload
     | ImportedArtifactPayload
     | ReconciliationResultPayload
     | TermMappingRulePayload
