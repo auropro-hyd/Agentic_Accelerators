@@ -90,6 +90,23 @@ class ThresholdsConfig(BaseModel):
     # Discovery (M1) thresholds.
     name_match_min_score: float = 0.85
     value_overlap_min_ratio: float = 0.5
+    """Overlap ratio (|FK-sample ∩ PK-sample| / |FK-sample|) at/above which the
+    value-overlap check *passes* (subject to the selectivity guards below)."""
+    value_overlap_failed_max_ratio: float = 0.05
+    """A *computed* overlap ratio at/below this is negative evidence (D11):
+    the FK-side values do not exist on the PK side, so the relationship is
+    demoted to Weak and `value_overlap_failed` is recorded in `signals`.
+    Ratios between this and `value_overlap_min_ratio` are inconclusive
+    (neutral). An overlap that could not be computed at all is also neutral."""
+    value_overlap_min_distinct: int = 10
+    """Minimum distinct values in the FK-side sample for a passing overlap to
+    count as corroboration (D10). Below this the overlap is recorded as
+    `value_overlap_low_selectivity` and does not upgrade confidence."""
+    value_overlap_dense_int_max: int = 100
+    """A passing overlap whose overlapped values form a (nearly) dense integer
+    range bounded by this ceiling is treated as a small surrogate-id range
+    (ids 1..N) and does not upgrade confidence (D10) — any two small serial
+    columns overlap by construction, so the signal carries no information."""
 
     # Profiling (M2) thresholds.
     sample_budget_rows: int = 10000
