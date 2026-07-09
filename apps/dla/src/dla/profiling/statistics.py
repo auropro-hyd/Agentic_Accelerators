@@ -6,6 +6,7 @@ top_values, min, max, quantiles, sample_values.
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -59,6 +60,16 @@ def _quantiles(numeric_values: list[float]) -> dict[str, float]:
     }
 
 
+def _canonical_json(v: Any) -> str:
+    """Canonical JSON string for a composite value (dict/list/...).
+
+    Sorted keys + compact separators make the representation deterministic,
+    hashable, and JSON-serializable — jsonb / array column values pass through
+    here before distinct/top-value counting (D2a).
+    """
+    return json.dumps(v, sort_keys=True, separators=(",", ":"), default=str)
+
+
 def _normalize_for_json(v: Any) -> Any:
     """Make a value JSON-serializable (datetimes -> ISO strings, etc.)."""
     if v is None:
@@ -69,6 +80,8 @@ def _normalize_for_json(v: Any) -> Any:
         return v.isoformat()
     if isinstance(v, Number):
         return float(v)  # type: ignore[arg-type]
+    if isinstance(v, (dict, list, tuple, set)):
+        return _canonical_json(v if not isinstance(v, set) else sorted(v, key=repr))
     return str(v)
 
 
@@ -87,7 +100,21 @@ def compute_stats(
     """
     null_count = sum(1 for v in values if v is None)
     null_rate = (null_count / sample_size) if sample_size > 0 else 0.0
-    non_null = [v for v in values if v is not None]
+
+    # Unhashable values (jsonb dicts, arrays, ...) cannot feed Counter/set
+    # operations directly — serialize them to a canonical JSON string first
+    # (D2a). Hashable values pass through untouched.
+    non_null: list[Any] = []
+    had_unhashable = False
+    for v in values:
+        if v is None:
+            continue
+        try:
+            hash(v)
+        except TypeError:
+            v = _canonical_json(v)
+            had_unhashable = True
+        non_null.append(v)
 
     counter = Counter(non_null) if non_null else Counter()
     distinct_count: int | None = (
@@ -104,7 +131,9 @@ def compute_stats(
     sample_values: list[Any] = []
 
     if non_null:
-        if _is_comparable(non_null):
+        # Serialized composite values order as JSON strings, which is not a
+        # meaningful min/max — skip ordering stats for those columns.
+        if not had_unhashable and _is_comparable(non_null):
             sorted_vals = sorted(non_null)
             minimum = _normalize_for_json(sorted_vals[0])
             maximum = _normalize_for_json(sorted_vals[-1])
