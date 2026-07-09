@@ -127,6 +127,32 @@ def test_unprofiled_yields_one_info_issue_and_short_circuits() -> None:
     assert issues[0].severity is Severity.INFO
 
 
+def test_error_profile_yields_one_info_issue_with_error_reason() -> None:
+    """D2b regression: an errored profile must be surfaced, same as unprofiled."""
+    col = _column("payload")
+    profile = _profile(column=col, status=ProfileStatus.ERROR, sample_size=0, distinct_count=None)
+    profile = profile.model_copy(
+        update={"error_reason": "TypeError: unhashable type: 'dict'"}
+    )
+    issues = check_column_from_profile(profile, col, ThresholdsConfig())
+    assert len(issues) == 1
+    assert issues[0].issue_type is IssueType.UNPROFILED
+    assert issues[0].severity is Severity.INFO
+    assert issues[0].details["profile_status"] == "error"
+    assert issues[0].details["error_reason"] == "TypeError: unhashable type: 'dict'"
+    assert issues[0].suggestion is not None
+
+
+def test_error_profile_short_circuits_other_checks() -> None:
+    """No all_null / constant noise from the zeroed stats of an errored profile."""
+    col = _column("payload")
+    profile = _profile(
+        column=col, status=ProfileStatus.ERROR, sample_size=100, null_rate=1.0, distinct_count=1
+    )
+    issues = check_column_from_profile(profile, col, ThresholdsConfig())
+    assert [i.issue_type for i in issues] == [IssueType.UNPROFILED]
+
+
 def test_clean_profile_yields_no_issues() -> None:
     col = _column("status")
     profile = _profile(column=col, null_rate=0.05, distinct_count=5, sample_size=100)
