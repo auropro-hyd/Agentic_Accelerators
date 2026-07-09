@@ -28,6 +28,7 @@ from dla.readiness.checks import (
     check_broken_fk,
     check_column_from_profile,
     check_empty_table,
+    check_type_mismatch,
 )
 
 _log = get_logger("dla.readiness")
@@ -167,6 +168,15 @@ def assemble(
         empty_issue = check_empty_table(table, table_profiles, cfg.thresholds)
         if empty_issue is not None:
             detected.append(empty_issue)
+
+    # Type-mismatch check (FR-007) — pure bundle data, works offline.
+    columns_by_ref: dict[str, ColumnPayload] = {c.artifact_id: c for c in columns}
+    for rel in relationships:
+        mismatch = check_type_mismatch(
+            rel, columns_by_ref=columns_by_ref, thresholds=cfg.thresholds
+        )
+        if mismatch is not None:
+            detected.append(mismatch)
 
     # Broken-FK check (needs live connector + table-name resolution).
     if connector is not None and relationships:
