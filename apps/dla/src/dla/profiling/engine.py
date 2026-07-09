@@ -108,10 +108,17 @@ def profile(
                     error_reason: str | None = None
                     stats = None
                     actual_sample = 0
+                    sampling_note: str | None = None
 
                     try:
-                        result = sampler.sample(connector, table_name, col_payload.name)
+                        result = sampler.sample(
+                            connector,
+                            table_name,
+                            col_payload.name,
+                            total_rows=total_rows if total_rows >= 0 else None,
+                        )
                         actual_sample = result.actual
+                        sampling_note = result.sampling_note
                         stats = compute_stats(
                             result.values,
                             sample_size=actual_sample,
@@ -148,6 +155,7 @@ def profile(
                         sample_values=stats.sample_values if stats else [],
                         profile_status=status,
                         error_reason=error_reason,
+                        sampling_note=sampling_note,
                     )
                     res = write_artifact(
                         bundle_root,

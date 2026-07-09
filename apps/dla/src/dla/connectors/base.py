@@ -73,7 +73,16 @@ class IntrospectionResult:
 
 
 class SourceConnector(Protocol):
-    """Uniform discovery + profiling surface every provider implements."""
+    """Uniform discovery + profiling surface every provider implements.
+
+    Optional capability (duck-typed, not required by this protocol):
+    `sample_with_nulls_random(table, column, n, total_rows) -> list | None` —
+    a spread-out sample of up to `n` values for tables larger than the
+    profiling budget, deterministic across re-runs (idempotency), returning
+    None when not applicable. The profiling sampler probes for it with
+    `getattr` and falls back to `sample_with_nulls` (head read) otherwise.
+    Postgres implements it via `TABLESAMPLE SYSTEM ... REPEATABLE`.
+    """
 
     def connect(self) -> None: ...
 

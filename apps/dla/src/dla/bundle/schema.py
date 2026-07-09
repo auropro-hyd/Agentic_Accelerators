@@ -176,6 +176,9 @@ class ProfilePayload(CommonFields):
     sample_values: list[Any] = Field(default_factory=list)
     profile_status: ProfileStatus
     error_reason: str | None = None
+    sampling_note: str | None = None
+    """How the sample was drawn when it deviates from a plain head read
+    (e.g. random block sampling via TABLESAMPLE). Additive; default None."""
 
 
 # --- M3 entities ---

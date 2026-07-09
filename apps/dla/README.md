@@ -134,7 +134,7 @@ contributed (`declared_fk`, `name_match`, `type_match`,
 | ---------- | --------------------------------------------------------------------------------------- |
 | `Critical` | Broken foreign key, empty table, all-null column.                                       |
 | `Warning`  | Column with high null rate (≥ 50%), type mismatch (planned).                            |
-| `Info`     | Constant-value column (tiny samples), unprofiled column (permission denied, etc.).      |
+| `Info`     | Constant-value column (tiny samples), unprofiled or errored column (permission denied, profiling failure, etc.). |
 
 Each issue carries a structured `details` block and a plain-language
 `suggestion` for remediation.
@@ -504,7 +504,7 @@ controls where output lands.
 | `dla discover --config <yaml>`                                         | Connect to the configured source, discover schema, write `bundle/source.*`, `bundle/schema/*`, and the manifest. |
 | `dla discover --config <yaml> --bundle-dir <path>`                     | Override the output location for this run.                                                                         |
 | `dla discover --config <yaml> --dry-run`                               | Plan only — print the counts of what would be written; do not touch disk.                                          |
-| `dla profile --config <yaml>`                                          | For every column already in the bundle, sample, compute stats, and write a profile artifact.                       |
+| `dla profile --config <yaml>`                                          | For every column already in the bundle, sample, compute stats, and write a profile artifact. On Postgres, tables larger than `sample_budget_rows` are sampled with `TABLESAMPLE SYSTEM ... REPEATABLE` (spread across the table, deterministic across re-runs; the profile records a `sampling_note`) instead of just the first N rows. |
 | `dla profile --config <yaml> --mode full_scan`                         | Profile by reading every row (exact stats; slower than the default sampling mode).                                 |
 | `dla profile --config <yaml> --table <schema.table>`                   | Restrict profiling to one table — useful after a schema change.                                                    |
 | `dla readiness --config <yaml>`                                        | Walk the bundle, detect data-quality issues, write `bundle/readiness/issues/*` and `bundle/readiness/readiness.md`. |
