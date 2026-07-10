@@ -1,0 +1,2914 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DLA bundle artifact",
+  "version": "1.1.0",
+  "$defs": {
+    "ArtifactType": {
+      "description": "Every bundle artifact's `artifact_type` value.",
+      "enum": [
+        "source",
+        "table",
+        "column",
+        "relationship",
+        "index",
+        "profile",
+        "readiness_issue",
+        "description",
+        "glossary_entry",
+        "pattern",
+        "kpi",
+        "hierarchy",
+        "imported_artifact",
+        "reconciliation_result",
+        "term_mapping_rule",
+        "recommendation",
+        "coverage_record"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "ColumnPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "column",
+          "default": "column",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "table_ref": {
+          "title": "Table Ref",
+          "type": "string"
+        },
+        "data_type": {
+          "title": "Data Type",
+          "type": "string"
+        },
+        "normalized_type": {
+          "$ref": "#/$defs/NormalizedType"
+        },
+        "is_nullable": {
+          "title": "Is Nullable",
+          "type": "boolean"
+        },
+        "is_pk": {
+          "title": "Is Pk",
+          "type": "boolean"
+        },
+        "is_unique": {
+          "title": "Is Unique",
+          "type": "boolean"
+        },
+        "glossary_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Glossary Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "name",
+        "table_ref",
+        "data_type",
+        "normalized_type",
+        "is_nullable",
+        "is_pk",
+        "is_unique"
+      ],
+      "title": "ColumnPayload",
+      "type": "object"
+    },
+    "Confidence": {
+      "enum": [
+        "Explicit",
+        "Strong",
+        "Weak"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "CreatedBy": {
+      "enum": [
+        "accelerator",
+        "sme",
+        "importer",
+        "prior-bundle-import"
+      ],
+      "title": "CreatedBy",
+      "type": "string"
+    },
+    "DescriptionPayload": {
+      "additionalProperties": false,
+      "description": "Auto-drafted (or SME-edited) human description of a table or column.\n\n`target_artifact_ref` points back at the entity being described \u2014 either a\n`table:...` or `column:...` artifact id. The on-disk filename stem\nnamespaces by target (`column.<dotted>.{md,json}` or\n`table.<dotted>.{md,json}`) so descriptions for tables and columns can\nlive side-by-side in one directory without collision.\n\n`text` is the prose description (also the markdown body).\n`grounding_hash` is a stable hash over the prompt context dict \u2014 a re-run\nof `dla describe` skips the (expensive) LLM call when the hash is\nunchanged AND the provenance is still `ai-drafted`. Any SME edit flips\nthe provenance to `ai-drafted-edited`, which `preserves_sme_work` then\nprotects from clobbering forever.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "description",
+          "default": "description",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "target_artifact_ref": {
+          "title": "Target Artifact Ref",
+          "type": "string"
+        },
+        "target_kind": {
+          "enum": [
+            "table",
+            "column"
+          ],
+          "title": "Target Kind",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "grounding_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Hash"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "target_artifact_ref",
+        "target_kind",
+        "text"
+      ],
+      "title": "DescriptionPayload",
+      "type": "object"
+    },
+    "FormulaKind": {
+      "enum": [
+        "sql",
+        "human"
+      ],
+      "title": "FormulaKind",
+      "type": "string"
+    },
+    "GlossaryEntryPayload": {
+      "additionalProperties": false,
+      "description": "One recurring term/abbreviation with a proposed definition (\u00a7E6).",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "glossary_entry",
+          "default": "glossary_entry",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "term": {
+          "title": "Term",
+          "type": "string"
+        },
+        "definition": {
+          "title": "Definition",
+          "type": "string"
+        },
+        "usages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Usages",
+          "type": "array"
+        },
+        "recurrence_count": {
+          "minimum": 0,
+          "title": "Recurrence Count",
+          "type": "integer"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "term",
+        "definition",
+        "recurrence_count"
+      ],
+      "title": "GlossaryEntryPayload",
+      "type": "object"
+    },
+    "HierarchyLevel": {
+      "additionalProperties": false,
+      "description": "One level of a dimension hierarchy: a label plus the column it maps to.",
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "column_ref": {
+          "minLength": 1,
+          "title": "Column Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "column_ref"
+      ],
+      "title": "HierarchyLevel",
+      "type": "object"
+    },
+    "HierarchyPayload": {
+      "additionalProperties": false,
+      "description": "A dimension drill-down hierarchy (SME-authored).\n\nLevels are ordered **coarsest to finest** (e.g. year \u2192 quarter \u2192 month).\nDownstream consumers use hierarchies to offer drill-down paths\n(\"executive summary \u2192 specific point\") without inventing them.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "hierarchy",
+          "default": "hierarchy",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "dimension": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dimension"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "levels": {
+          "items": {
+            "$ref": "#/$defs/HierarchyLevel"
+          },
+          "minItems": 2,
+          "title": "Levels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "name",
+        "levels"
+      ],
+      "title": "HierarchyPayload",
+      "type": "object"
+    },
+    "ImportedArtifactPayload": {
+      "additionalProperties": false,
+      "description": "One record imported from client documentation (data-model.md \u00a7E9).",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "imported_artifact",
+          "default": "imported_artifact",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "source_format": {
+          "$ref": "#/$defs/SourceFormat"
+        },
+        "source_path": {
+          "title": "Source Path",
+          "type": "string"
+        },
+        "target_artifact_type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "target_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Ref"
+        },
+        "raw_payload": {
+          "additionalProperties": true,
+          "title": "Raw Payload",
+          "type": "object"
+        },
+        "proposed_value": {
+          "title": "Proposed Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "source_format",
+        "source_path",
+        "target_artifact_type",
+        "proposed_value"
+      ],
+      "title": "ImportedArtifactPayload",
+      "type": "object"
+    },
+    "IndexPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "index",
+          "default": "index",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "table_ref": {
+          "title": "Table Ref",
+          "type": "string"
+        },
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "is_unique": {
+          "title": "Is Unique",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "name",
+        "table_ref",
+        "is_unique"
+      ],
+      "title": "IndexPayload",
+      "type": "object"
+    },
+    "IssueType": {
+      "enum": [
+        "high_null_rate",
+        "broken_fk",
+        "empty_table",
+        "all_null_column",
+        "constant_column",
+        "type_mismatch",
+        "unprofiled"
+      ],
+      "title": "IssueType",
+      "type": "string"
+    },
+    "KpiPayload": {
+      "additionalProperties": false,
+      "description": "One KPI defined in the workbook (\u00a7E8). SME-authored in v1.\n\n`dimensions` holds the dimension labels exactly as the SME entered them\n(e.g. `region`, `public.customers.region`). `dimension_refs` holds the\ncorresponding resolved `column:` artifact ids for every dimension that was\nvalidated against the discovered schema \u2014 this is what downstream\nconsumers (the knowledge-representation layer) enumerate to offer\n\"metric by dimension\" menus without guessing. A dimension deliberately\nsaved unvalidated (conceptual, e.g. `fiscal_period`) appears in\n`dimensions` but has no entry in `dimension_refs`.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "kpi",
+          "default": "kpi",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "business_definition": {
+          "title": "Business Definition",
+          "type": "string"
+        },
+        "formula": {
+          "title": "Formula",
+          "type": "string"
+        },
+        "formula_kind": {
+          "$ref": "#/$defs/FormulaKind"
+        },
+        "grain": {
+          "title": "Grain",
+          "type": "string"
+        },
+        "dimensions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "dimension_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dimension Refs",
+          "type": "array"
+        },
+        "source_table_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Table Refs",
+          "type": "array"
+        },
+        "owner": {
+          "title": "Owner",
+          "type": "string"
+        },
+        "re_confirmation_required": {
+          "default": false,
+          "title": "Re Confirmation Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "name",
+        "business_definition",
+        "formula",
+        "formula_kind",
+        "grain",
+        "owner"
+      ],
+      "title": "KpiPayload",
+      "type": "object"
+    },
+    "NormalizedType": {
+      "enum": [
+        "string",
+        "integer",
+        "decimal",
+        "boolean",
+        "date",
+        "datetime",
+        "binary",
+        "json",
+        "unknown"
+      ],
+      "title": "NormalizedType",
+      "type": "string"
+    },
+    "PatternKind": {
+      "enum": [
+        "glob",
+        "regex",
+        "exact"
+      ],
+      "title": "PatternKind",
+      "type": "string"
+    },
+    "PatternPayload": {
+      "additionalProperties": false,
+      "description": "One detected schema pattern (\u00a7E7).",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "pattern",
+          "default": "pattern",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "pattern_type": {
+          "$ref": "#/$defs/PatternType"
+        },
+        "participants": {
+          "additionalProperties": true,
+          "title": "Participants",
+          "type": "object"
+        },
+        "explanation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Explanation"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "pattern_type"
+      ],
+      "title": "PatternPayload",
+      "type": "object"
+    },
+    "PatternType": {
+      "enum": [
+        "star_schema",
+        "snowflake_schema",
+        "junction_table",
+        "audit_columns",
+        "slowly_changing_dimension"
+      ],
+      "title": "PatternType",
+      "type": "string"
+    },
+    "ProfileMode": {
+      "enum": [
+        "sampling",
+        "full_scan"
+      ],
+      "title": "ProfileMode",
+      "type": "string"
+    },
+    "ProfilePayload": {
+      "additionalProperties": false,
+      "description": "Column-level profile (data-model.md \u00a7E3).",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "profile",
+          "default": "profile",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "column_ref": {
+          "title": "Column Ref",
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/$defs/ProfileMode"
+        },
+        "sample_size": {
+          "minimum": 0,
+          "title": "Sample Size",
+          "type": "integer"
+        },
+        "null_count": {
+          "minimum": 0,
+          "title": "Null Count",
+          "type": "integer"
+        },
+        "null_rate": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Null Rate",
+          "type": "number"
+        },
+        "distinct_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Distinct Count"
+        },
+        "top_values": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Top Values",
+          "type": "array"
+        },
+        "min": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min"
+        },
+        "max": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max"
+        },
+        "quantiles": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quantiles"
+        },
+        "sample_values": {
+          "items": {},
+          "title": "Sample Values",
+          "type": "array"
+        },
+        "profile_status": {
+          "$ref": "#/$defs/ProfileStatus"
+        },
+        "error_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Reason"
+        },
+        "sampling_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sampling Note"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "column_ref",
+        "mode",
+        "sample_size",
+        "null_count",
+        "null_rate",
+        "profile_status"
+      ],
+      "title": "ProfilePayload",
+      "type": "object"
+    },
+    "ProfileStatus": {
+      "enum": [
+        "profiled",
+        "unprofiled",
+        "error"
+      ],
+      "title": "ProfileStatus",
+      "type": "string"
+    },
+    "Provenance": {
+      "description": "How an artifact came to be. Lower = earlier in the lifecycle.",
+      "enum": [
+        "discovered",
+        "client-provided",
+        "client-provided-reconciled",
+        "ai-drafted",
+        "ai-drafted-edited",
+        "sme-authored"
+      ],
+      "title": "Provenance",
+      "type": "string"
+    },
+    "ReadinessIssuePayload": {
+      "additionalProperties": false,
+      "description": "One detected data-quality issue (data-model.md \u00a7E4).",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "readiness_issue",
+          "default": "readiness_issue",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "issue_type": {
+          "$ref": "#/$defs/IssueType"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "affected_artifacts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Artifacts",
+          "type": "array"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        },
+        "suggestion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suggestion"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "issue_type",
+        "severity"
+      ],
+      "title": "ReadinessIssuePayload",
+      "type": "object"
+    },
+    "RecommendationPayload": {
+      "additionalProperties": false,
+      "description": "One recommender run's output (data-model.md \u00a7E12).\n\nDeterministic: the recommender takes no LLM in its decision path (FR-018),\nso the same bundle always yields the same recommendation. This is the bridge\nfrom the data layer (L1) to the downstream agentic accelerators \u2014 the chosen\nstrategy tells the next layer whether a plain relational schema, a vector\nstore, or a knowledge graph best fits the client's data.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "recommendation",
+          "default": "recommendation",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "recommended_strategy": {
+          "$ref": "#/$defs/Strategy"
+        },
+        "strategy_confidence": {
+          "$ref": "#/$defs/StrategyConfidence"
+        },
+        "reasoning": {
+          "title": "Reasoning",
+          "type": "string"
+        },
+        "signals_detected": {
+          "additionalProperties": true,
+          "title": "Signals Detected",
+          "type": "object"
+        },
+        "alternatives_considered": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Alternatives Considered",
+          "type": "array"
+        },
+        "coverage_warning": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coverage Warning"
+        },
+        "override": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Override"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "recommended_strategy",
+        "strategy_confidence",
+        "reasoning"
+      ],
+      "title": "RecommendationPayload",
+      "type": "object"
+    },
+    "ReconciliationBucket": {
+      "enum": [
+        "match",
+        "conflict",
+        "gap-doc-only",
+        "gap-source-only"
+      ],
+      "title": "ReconciliationBucket",
+      "type": "string"
+    },
+    "ReconciliationResultPayload": {
+      "additionalProperties": false,
+      "description": "Classification of one imported artifact vs the discovered schema (\u00a7E10).",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "reconciliation_result",
+          "default": "reconciliation_result",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "imported_ref": {
+          "title": "Imported Ref",
+          "type": "string"
+        },
+        "bucket": {
+          "$ref": "#/$defs/ReconciliationBucket"
+        },
+        "evidence": {
+          "additionalProperties": true,
+          "title": "Evidence",
+          "type": "object"
+        },
+        "sme_decision": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sme Decision"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "imported_ref",
+        "bucket"
+      ],
+      "title": "ReconciliationResultPayload",
+      "type": "object"
+    },
+    "RelationshipPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "relationship",
+          "default": "relationship",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "from_column_ref": {
+          "title": "From Column Ref",
+          "type": "string"
+        },
+        "to_column_ref": {
+          "title": "To Column Ref",
+          "type": "string"
+        },
+        "relationship_type": {
+          "enum": [
+            "declared_fk",
+            "inferred_fk",
+            "inferred_join_key"
+          ],
+          "title": "Relationship Type",
+          "type": "string"
+        },
+        "signals": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Signals",
+          "type": "array"
+        },
+        "composite_group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Composite Group"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "from_column_ref",
+        "to_column_ref",
+        "relationship_type"
+      ],
+      "title": "RelationshipPayload",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "critical",
+        "warning",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "SourceFormat": {
+      "enum": [
+        "csv_dictionary",
+        "excel_dictionary",
+        "markdown_notes",
+        "dbt_manifest"
+      ],
+      "title": "SourceFormat",
+      "type": "string"
+    },
+    "SourcePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "source",
+          "default": "source",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "provider": {
+          "enum": [
+            "postgres",
+            "csv_folder",
+            "snowflake"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "display_name": {
+          "title": "Display Name",
+          "type": "string"
+        },
+        "connection_config_ref": {
+          "title": "Connection Config Ref",
+          "type": "string"
+        },
+        "discovered_at": {
+          "format": "date-time",
+          "title": "Discovered At",
+          "type": "string"
+        },
+        "summary_counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Summary Counts",
+          "type": "object"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "provider",
+        "display_name",
+        "connection_config_ref",
+        "discovered_at",
+        "summary_counts"
+      ],
+      "title": "SourcePayload",
+      "type": "object"
+    },
+    "Strategy": {
+      "description": "Downstream retrieval strategy the recommender selects (E12 / FR-018).",
+      "enum": [
+        "plain_schema",
+        "vector",
+        "knowledge_graph"
+      ],
+      "title": "Strategy",
+      "type": "string"
+    },
+    "StrategyConfidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "StrategyConfidence",
+      "type": "string"
+    },
+    "TablePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "table",
+          "default": "table",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "row_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row Count"
+        },
+        "column_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Column Names",
+          "type": "array"
+        },
+        "pk_columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pk Columns",
+          "type": "array"
+        },
+        "pattern_tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pattern Tags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "name"
+      ],
+      "title": "TablePayload",
+      "type": "object"
+    },
+    "TermMappingRulePayload": {
+      "additionalProperties": false,
+      "description": "SME-defined term-mapping rule, evaluated before fuzzy matching (\u00a7E11).",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "const": "term_mapping_rule",
+          "default": "term_mapping_rule",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "created_by_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created By Detail"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "grounding_signals": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grounding Signals"
+        },
+        "imported_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imported From"
+        },
+        "prior_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Sources"
+        },
+        "pattern": {
+          "title": "Pattern",
+          "type": "string"
+        },
+        "pattern_kind": {
+          "$ref": "#/$defs/PatternKind"
+        },
+        "target_glossary_term": {
+          "title": "Target Glossary Term",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "title": "Scope",
+          "type": "object"
+        },
+        "precedence": {
+          "default": 0,
+          "title": "Precedence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "source_id",
+        "provenance",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "pattern",
+        "pattern_kind",
+        "target_glossary_term"
+      ],
+      "title": "TermMappingRulePayload",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "column": "#/$defs/ColumnPayload",
+      "description": "#/$defs/DescriptionPayload",
+      "glossary_entry": "#/$defs/GlossaryEntryPayload",
+      "hierarchy": "#/$defs/HierarchyPayload",
+      "imported_artifact": "#/$defs/ImportedArtifactPayload",
+      "index": "#/$defs/IndexPayload",
+      "kpi": "#/$defs/KpiPayload",
+      "pattern": "#/$defs/PatternPayload",
+      "profile": "#/$defs/ProfilePayload",
+      "readiness_issue": "#/$defs/ReadinessIssuePayload",
+      "recommendation": "#/$defs/RecommendationPayload",
+      "reconciliation_result": "#/$defs/ReconciliationResultPayload",
+      "relationship": "#/$defs/RelationshipPayload",
+      "source": "#/$defs/SourcePayload",
+      "table": "#/$defs/TablePayload",
+      "term_mapping_rule": "#/$defs/TermMappingRulePayload"
+    },
+    "propertyName": "artifact_type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/SourcePayload"
+    },
+    {
+      "$ref": "#/$defs/TablePayload"
+    },
+    {
+      "$ref": "#/$defs/ColumnPayload"
+    },
+    {
+      "$ref": "#/$defs/RelationshipPayload"
+    },
+    {
+      "$ref": "#/$defs/IndexPayload"
+    },
+    {
+      "$ref": "#/$defs/ProfilePayload"
+    },
+    {
+      "$ref": "#/$defs/ReadinessIssuePayload"
+    },
+    {
+      "$ref": "#/$defs/DescriptionPayload"
+    },
+    {
+      "$ref": "#/$defs/GlossaryEntryPayload"
+    },
+    {
+      "$ref": "#/$defs/PatternPayload"
+    },
+    {
+      "$ref": "#/$defs/KpiPayload"
+    },
+    {
+      "$ref": "#/$defs/HierarchyPayload"
+    },
+    {
+      "$ref": "#/$defs/ImportedArtifactPayload"
+    },
+    {
+      "$ref": "#/$defs/ReconciliationResultPayload"
+    },
+    {
+      "$ref": "#/$defs/TermMappingRulePayload"
+    },
+    {
+      "$ref": "#/$defs/RecommendationPayload"
+    }
+  ]
+}

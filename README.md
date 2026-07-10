@@ -1,7 +1,13 @@
 # AuroPro Agentic AI Accelerators
 
-Centralized accelerator platform — one directory per accelerator under `libs/`,
-each an independently versioned, publishable package; deployable apps under `apps/`.
+Centralized accelerator platform — shared libraries under `libs/` (each an
+independently versioned, publishable package) and one accelerator per directory
+under `apps/` (each its own installable package). Accelerators connect through
+**published contracts** (artifact directories + generated JSON Schemas + MCP
+tools), never through code imports. See
+[`docs/repo-structure.md`](docs/repo-structure.md) for the full structure guide:
+the hub-and-spoke model, the standard anatomy every accelerator follows, and
+the checklist for adding a new one.
 
 | Directory | Package | What it is |
 |---|---|---|
