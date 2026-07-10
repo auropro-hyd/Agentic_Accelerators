@@ -23,8 +23,8 @@ LLM    ?=
 
 .DEFAULT_GOAL := help
 .PHONY: help install lint format typecheck test test-dla test-libs test-scripts \
-        licenses ci pipeline discover profile describe recommend validate schema \
-        ui run clean
+        licenses check-contracts sync-contracts ci pipeline discover profile \
+        describe recommend validate schema ui run clean
 
 help: ## List available targets
 	@uv run python -c "import re; [print(f'  {n:14} {d}') for n, d in re.findall(r'(?m)^([a-zA-Z_-]+):.*?## (.*)$$', open('Makefile').read())]"
@@ -58,7 +58,13 @@ test-scripts: ## Repo-scripts suite with its coverage gate
 licenses: ## License denylist gate (allowlist gate runs in CI)
 	uv run python scripts/check_licenses.py
 
-ci: lint typecheck test ## Mirror the CI `checks` job locally
+check-contracts: ## Verify contracts/ byte-mirrors the published app schemas
+	uv run python scripts/check_contract_mirror.py
+
+sync-contracts: ## Rewrite contracts/ from apps/*/config/schemas (run after `make schema`)
+	uv run python scripts/check_contract_mirror.py --fix
+
+ci: lint typecheck test check-contracts ## Mirror the CI `checks` job locally
 
 # --- live-database e2e (Wave 8; brings the fixture container up first) ------
 E2E_SMALL_COMPOSE := apps/dla/tests/fixtures/postgres/docker-compose.yaml
